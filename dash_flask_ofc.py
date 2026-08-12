@@ -3,6 +3,7 @@
 vhsys_dashboard_web.py  (v2 — background fetch + loading page)
 """
 import os, sys, json, csv, io, re, time, threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from calendar import monthrange
@@ -141,9 +142,10 @@ def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
     order_field = empresa["order_field"]
     todos = []
     offset = 0
-    limit = 250
+    limit = 500  # Dobramos o limite de registros por página
     pagina = 1
     max_paginas = 200
+
     while pagina <= max_paginas:
         params = {"limit": limit, "offset": offset, "order": order_field, "sort": "Desc"}
         try:
@@ -175,6 +177,7 @@ def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
             break
         offset += limit
         pagina += 1
+
     filtrados = []
     for p in todos:
         if not isinstance(p, dict):
@@ -184,7 +187,7 @@ def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
             p[data_field] = dp
             filtrados.append(p)
     return filtrados
-
+    
 def processar_pedidos(pedidos, empresa):
     empresa_nome = empresa["nome"]
     data_field = empresa["data_field"]
@@ -534,8 +537,17 @@ window.addEventListener('DOMContentLoaded', init);
     return html
 
 # ── BUSCA DE DADOS EM SEGUNDO PLANO ───────────────────────────────────────
+def buscar_dados_de_mes(ano, mes, empresa):
+    """Busca pedidos de um mês específico de uma empresa."""
+    dia_final = monthrange(ano, mes)[1]
+    data_inicio = f"{ano}-{mes:02d}-01"
+    data_fim = f"{ano}-{mes:02d}-{dia_final:02d}"
+    headers = make_headers(empresa)
+    pedidos_brutos = listar_pedidos_periodo(data_inicio, data_fim, empresa, headers)
+    return processar_pedidos(pedidos_brutos, empresa)
+
 def buscar_dados_background():
-    """Roda em uma thread separada para não bloquear o servidor."""
+    """Roda em thread separada. Busca mês a mês em paralelo."""
     with _cache_lock:
         if _cache["buscando"]:
             return
@@ -543,16 +555,31 @@ def buscar_dados_background():
 
     try:
         hoje = date.today()
-        data_inicio = f"{hoje.year}-01-01"
-        data_fim = f"{hoje.year}-12-31"
+        ano = hoje.year
+        mes_atual = hoje.month
 
+        # Gerar lista de (ano, mes, empresa) para buscar
+        tarefas = []
+        for mes in range(1, mes_atual + 1):
+            for emp in EMPRESAS:
+                tarefas.append((ano, mes, emp))
+
+        # Buscar todos os meses em paralelo (até 12 threads)
         todos_pedidos = []
-        for emp in EMPRESAS:
-            headers = make_headers(emp)
-            pedidos_brutos = listar_pedidos_periodo(data_inicio, data_fim, emp, headers)
-            pedidos = processar_pedidos(pedidos_brutos, emp)
-            todos_pedidos.extend(pedidos)
+        with ThreadPoolExecutor(max_workers=12) as executor:
+            futures = {
+                executor.submit(buscar_dados_de_mes, ano, mes, emp): (mes, emp["nome"])
+                for (ano, mes, emp) in tarefas
+            }
+            for future in as_completed(futures):
+                mes, emp_nome = futures[future]
+                try:
+                    resultado = future.result()
+                    todos_pedidos.extend(resultado)
+                except Exception as e:
+                    pass  # Continua mesmo se um mês falhar
 
+        # Buscar entregas (rápido, é só um CSV)
         entregas = ler_dados_entregas()
         html = gerar_dashboard_html(todos_pedidos, entregas)
 
