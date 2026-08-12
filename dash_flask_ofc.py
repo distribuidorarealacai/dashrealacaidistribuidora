@@ -1,17 +1,6 @@
 #!/usr/bin/env python3
 """
-vhsys_dashboard_web.py  (v1 — versão online Flask)
-=========================================================================
-Versão web do dashboard para acesso online por múltiplos sócios.
-- Quando alguém acessa a URL, o sistema busca dados frescos
-- Cache de 5 minutos para não sobrecarregar a API
-- Mesmas funções da versão local (v21)
-Uso local:
-    pip install flask requests
-    python3 vhsys_dashboard_web.py
-    # Acessar http://localhost:5000
-Deploy:
-    Ver instruções no final do arquivo
+vhsys_dashboard_web.py  (v2 — background fetch + loading page)
 """
 import os, sys, json, csv, io, re, time, threading
 from datetime import datetime, date, timedelta
@@ -22,7 +11,6 @@ from flask import Flask
 
 app = Flask(__name__)
 
-# ── CONFIG: EMPRESAS ──────────────────────────────────────────────────────
 EMPRESAS = [
     {
         "nome": "REAL MAIS",
@@ -44,7 +32,6 @@ EMPRESAS = [
 
 BASE_URL = "https://api.vhsys.com/v2"
 STATUS_EXCLUIDOS = {"Cancelado"}
-
 SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
 
 METAS_MENSAIS = {
@@ -58,10 +45,10 @@ META_CONSOLIDADA = 1005277.76
 CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899',
          '#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
 
-# ── CACHE (5 minutos) ─────────────────────────────────────────────────────
-CACHE_TEMPO_SEGUNDOS = 300  # 5 minutos
+# ── CACHE + ESTADO DE LOADING ──────────────────────────────────────────────
+CACHE_TEMPO_SEGUNDOS = 300
 _cache_lock = threading.Lock()
-_cache = {"timestamp": 0, "html": "", "erro": ""}
+_cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False}
 
 def make_headers(empresa):
     return {
@@ -72,7 +59,6 @@ def make_headers(empresa):
         "Content-Type": "application/json",
     }
 
-# ── NORMALIZAÇÃO ──────────────────────────────────────────────────────────
 def normalizar_data(valor_bruto):
     if not valor_bruto:
         return ""
@@ -96,7 +82,6 @@ def normalizar_nome_vendedor(nome):
     s = ' '.join(s.split())
     return s if s else "Sem vendedor"
 
-# ── LEITURA DA PLANILHA DE ENTREGAS ───────────────────────────────────────
 def ler_dados_entregas():
     urls_export = [
         f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0",
@@ -104,7 +89,6 @@ def ler_dados_entregas():
         f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv",
         f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0&usp=sharing",
     ]
-
     content = None
     for url in urls_export:
         try:
@@ -117,10 +101,8 @@ def ler_dados_entregas():
                 break
         except:
             continue
-
     if content is None:
         return []
-
     entregas = []
     try:
         reader = csv.reader(io.StringIO(content))
@@ -144,8 +126,7 @@ def ler_dados_entregas():
                     entregador = "RETIRADA"
                 if entregador:
                     entregas.append({
-                        "data": data_atual,
-                        "entregador": entregador,
+                        "data": data_atual, "entregador": entregador,
                         "cliente": row[0].strip() if row[0] else "",
                         "nota": row[1].strip() if row[1] else "",
                         "veiculo": row[6].strip() if len(row) > 6 and row[6] else "",
@@ -154,7 +135,6 @@ def ler_dados_entregas():
         return []
     return entregas
 
-# ── API: BUSCA COM SORT=DESC + PARADA INTELIGENTE ────────────────────────
 def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
     endpoint = empresa["endpoint"]
     data_field = empresa["data_field"]
@@ -164,7 +144,6 @@ def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
     limit = 250
     pagina = 1
     max_paginas = 200
-
     while pagina <= max_paginas:
         params = {"limit": limit, "offset": offset, "order": order_field, "sort": "Desc"}
         try:
@@ -196,7 +175,6 @@ def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
             break
         offset += limit
         pagina += 1
-
     filtrados = []
     for p in todos:
         if not isinstance(p, dict):
@@ -207,7 +185,6 @@ def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
             filtrados.append(p)
     return filtrados
 
-# ── PROCESSAMENTO ─────────────────────────────────────────────────────────
 def processar_pedidos(pedidos, empresa):
     empresa_nome = empresa["nome"]
     data_field = empresa["data_field"]
@@ -236,13 +213,11 @@ def processar_pedidos(pedidos, empresa):
         })
     return processados
 
-# ── GERAÇÃO DO DASHBOARD HTML ─────────────────────────────────────────────
 def gerar_dashboard_html(pedidos, entregas):
     dados_json = json.dumps(pedidos, ensure_ascii=False)
     entregas_json = json.dumps(entregas, ensure_ascii=False)
     metas_json = json.dumps(METAS_MENSAIS, ensure_ascii=False)
     data_geracao = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
-
     if pedidos:
         datas = sorted([p["data"] for p in pedidos if p["data"]])
         min_data = datas[0] if datas else date.today().isoformat()
@@ -250,13 +225,12 @@ def gerar_dashboard_html(pedidos, entregas):
     else:
         min_data = date.today().replace(day=1).isoformat()
         max_data = date.today().isoformat()
-
     html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Faturamento & Entregas | Multi-Empresa</title>
+<title>Dashboard de Faturamento & Entregas</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f0f2f5;--card-bg:#fff;--primary:#2563eb;--primary-light:#dbeafe;--green:#16a34a;--green-light:#dcfce7;--amber:#f59e0b;--amber-light:#fef3c7;--red:#dc2626;--red-light:#fee2e2;--text:#1e293b;--text-muted:#64748b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);--shadow-lg:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);--radius:12px;}
@@ -336,7 +310,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .pct-bar{background:var(--border);border-radius:6px;height:8px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px;}
 .pct-fill{height:100%;border-radius:6px;transition:width .3s;}
 .no-data{text-align:center;padding:48px;color:var(--text-muted);font-size:16px;}
-.loading{text-align:center;padding:60px;color:var(--primary);font-size:18px;}
 </style>
 </head>
 <body>
@@ -560,26 +533,65 @@ window.addEventListener('DOMContentLoaded', init);
     html = html.replace("__MAX_DATA__", max_data)
     return html
 
-# ── BUSCA DE DADOS (com cache) ────────────────────────────────────────────
-def buscar_e_gerar_dashboard():
-    hoje = date.today()
-    data_inicio = f"{hoje.year}-01-01"
-    data_fim = f"{hoje.year}-12-31"
+# ── BUSCA DE DADOS EM SEGUNDO PLANO ───────────────────────────────────────
+def buscar_dados_background():
+    """Roda em uma thread separada para não bloquear o servidor."""
+    with _cache_lock:
+        if _cache["buscando"]:
+            return
+        _cache["buscando"] = True
 
-    # Buscar dados de vendas
-    todos_pedidos = []
-    for emp in EMPRESAS:
-        headers = make_headers(emp)
-        pedidos_brutos = listar_pedidos_periodo(data_inicio, data_fim, emp, headers)
-        pedidos = processar_pedidos(pedidos_brutos, emp)
-        todos_pedidos.extend(pedidos)
+    try:
+        hoje = date.today()
+        data_inicio = f"{hoje.year}-01-01"
+        data_fim = f"{hoje.year}-12-31"
 
-    # Buscar dados de entregas
-    entregas = ler_dados_entregas()
+        todos_pedidos = []
+        for emp in EMPRESAS:
+            headers = make_headers(emp)
+            pedidos_brutos = listar_pedidos_periodo(data_inicio, data_fim, emp, headers)
+            pedidos = processar_pedidos(pedidos_brutos, emp)
+            todos_pedidos.extend(pedidos)
 
-    # Gerar HTML
-    html = gerar_dashboard_html(todos_pedidos, entregas)
-    return html
+        entregas = ler_dados_entregas()
+        html = gerar_dashboard_html(todos_pedidos, entregas)
+
+        with _cache_lock:
+            _cache["timestamp"] = time.time()
+            _cache["html"] = html
+            _cache["erro"] = ""
+            _cache["buscando"] = False
+    except Exception as e:
+        with _cache_lock:
+            _cache["erro"] = str(e)
+            _cache["buscando"] = False
+
+# ── PÁGINA DE LOADING ─────────────────────────────────────────────────────
+LOADING_HTML = '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carregando Dashboard...</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;}
+.loader{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07);}
+.spinner{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+h1{color:#1e293b;font-size:20px;margin:0 0 8px;}
+p{color:#64748b;font-size:14px;margin:0;}
+</style>
+<meta http-equiv="refresh" content="10">
+</head>
+<body>
+<div class="loader">
+<div class="spinner"></div>
+<h1>Buscando dados...</h1>
+<p>Aguarde, estamos coletando as informacoes de vendas e entregas.</p>
+<p style="margin-top:8px;font-size:12px;color:#94a3b8;">Esta pagina vai atualizar automaticamente em 10 segundos.</p>
+</div>
+</body>
+</html>'''
 
 # ── ROTAS FLASK ───────────────────────────────────────────────────────────
 @app.route('/')
@@ -589,39 +601,30 @@ def dashboard():
         tempo_decorrido = agora - _cache["timestamp"]
         if _cache["html"] and tempo_decorrido < CACHE_TEMPO_SEGUNDOS:
             return _cache["html"]
+        if _cache["buscando"]:
+            return LOADING_HTML
 
-    # Buscar dados frescos
-    try:
-        html = buscar_e_gerar_dashboard()
-        with _cache_lock:
-            _cache["timestamp"] = agora
-            _cache["html"] = html
-            _cache["erro"] = ""
-        return html
-    except Exception as e:
-        erro_html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Erro</title>
-<style>body{{font-family:sans-serif;text-align:center;padding:60px;color:#dc2626;}}</style></head>
-<body><h1>Erro ao gerar dashboard</h1><p>{str(e)}</p>
-<p>Tente novamente em alguns minutos. Se o erro persistir, contate o administrador.</p></body></html>'''
-        return erro_html, 500
+    # Iniciar busca em background
+    thread = threading.Thread(target=buscar_dados_background, daemon=True)
+    thread.start()
+    return LOADING_HTML
 
 @app.route('/atualizar')
 def forcar_atualizacao():
-    """Força atualização ignorando o cache."""
     with _cache_lock:
         _cache["timestamp"] = 0
         _cache["html"] = ""
-    try:
-        html = buscar_e_gerar_dashboard()
-        with _cache_lock:
-            _cache["timestamp"] = time.time()
-            _cache["html"] = html
-        return "<script>window.location.href='/';</script>"
-    except Exception as e:
-        return f"Erro: {e}", 500
+        _cache["buscando"] = False
+    thread = threading.Thread(target=buscar_dados_background, daemon=True)
+    thread.start()
+    return "<script>window.location.href='/';</script>"
 
-# ── INIT ──────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    print(f"Dashboard online rodando em http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+# ── INICIALIZAÇÃO: BUSCAR DADOS AO SUBIR ──────────────────────────────────
+def init_background():
+    """Inicia a primeira busca de dados assim que o servidor sobe."""
+    time.sleep(2)
+    buscar_dados_background()
+
+# Thread que busca dados ao iniciar
+_init_thread = threading.Thread(target=init_background, daemon=True)
+_init_thread.start()
