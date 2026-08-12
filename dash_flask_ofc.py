@@ -563,9 +563,8 @@ window.addEventListener('DOMContentLoaded', init);
 # ── BUSCA DE DADOS (com cache) ────────────────────────────────────────────
 def buscar_e_gerar_dashboard():
     hoje = date.today()
-    dia_final = monthrange(hoje.year, hoje.month)[1]
-    data_inicio = f"{hoje.year}-{hoje.month:02d}-01"
-    data_fim = f"{hoje.year}-{hoje.month:02d}-{dia_final:02d}"
+    data_inicio = f"{hoje.year}-01-01"
+    data_fim = f"{hoje.year}-12-31"
 
     # Buscar dados de vendas
     todos_pedidos = []
