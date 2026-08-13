@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-dash_flask_ofc.py  (v3 — CMV + metas editaveis + meta consolidada fix + parallel fetch)
+dash_flask_ofc.py  (v5 - abas Comercial/Logistica/Contabil + logo Real Aciai)
 """
-import os, sys, json, csv, io, re, time, threading, http.client
-from datetime import datetime, date, timedelta
-from pathlib import Path
+import os, sys, json, csv, io, re, time, threading
+from datetime import datetime, date
 from calendar import monthrange
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
@@ -12,1063 +11,426 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# ── CONFIG: EMPRESAS
 EMPRESAS = [
-    {
-        "nome": "REAL MAIS",
-        "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT",
-        "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO",
-        "endpoint": "/pedidos/",
-        "data_field": "data_pedido",
-        "order_field": "data_pedido",
-    },
-    {
-        "nome": "GP DISTRIBUIDORA",
-        "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST",
-        "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm",
-        "endpoint": "/vendas-balcao/",
-        "data_field": "data_cad_pedido",
-        "order_field": "data_cad_pedido",
-    },
+    {"nome": "REAL MAIS", "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT", "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
+    {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
 ]
 
 BASE_URL = "https://api.vhsys.com/v2"
 STATUS_EXCLUIDOS = {"Cancelado"}
 SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
 
-# ── METAS (editaveis via API)
 _metas_lock = threading.Lock()
-_metas = {
-    "Simone Moura":      215000.00,
-    "Isa":               241500.00,
-    "Ana Ruth":           65000.00,
-    "GP DISTRIBUIDORA":  100000.00,
-}
+_metas = {"Simone Moura": 215000.00, "Isa": 241500.00, "Ana Ruth": 65000.00, "GP DISTRIBUIDORA": 100000.00}
 _metas_consolidada = 1005277.76
-
-CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899',
-         '#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
-
-# ── CACHE (30 minutos)
+CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
 CACHE_TEMPO_SEGUNDOS = 1800
 _cache_lock = threading.Lock()
 _cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False}
-
-# ── CMV CACHE
 _cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
 _cmv_lock = threading.Lock()
 
 def make_headers(empresa):
-    return {
-        "access-token": empresa["access_token"],
-        "secret-access-token": empresa["secret_token"],
-        "Cache-Control": "no-cache",
-        "User-Agent": "MinhaAplicacao/1.0",
-        "Content-Type": "application/json",
-    }
+    return {"access-token": empresa["access_token"], "secret-access-token": empresa["secret_token"], "Cache-Control": "no-cache", "User-Agent": "MinhaAplicacao/1.0", "Content-Type": "application/json"}
 
 def normalizar_data(valor_bruto):
-    if not valor_bruto:
-        return ""
+    if not valor_bruto: return ""
     s = str(valor_bruto).strip()
     m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', s)
-    if m:
-        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    if m: return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
     m = re.match(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})', s)
-    if m:
-        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    if m: return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
     m = re.match(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{2})', s)
-    if m:
-        return f"20{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    if m: return f"20{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
     return ""
 
 def normalizar_nome_vendedor(nome):
-    if not nome:
-        return "Sem vendedor"
-    s = str(nome)
-    s = s.replace('\xa0', ' ').replace('\t', ' ').replace('\n', ' ').replace('\r', ' ')
+    if not nome: return "Sem vendedor"
+    s = str(nome).replace('\xa0',' ').replace('\t',' ').replace('\n',' ').replace('\r',' ')
     s = ' '.join(s.split())
     return s if s else "Sem vendedor"
 
-# ── LEITURA DA PLANILHA DE ENTREGAS
 def ler_dados_entregas():
-    urls_export = [
-        f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0",
-        f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv",
-        f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv",
-        f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0&usp=sharing",
-    ]
+    urls = [f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0", f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv", f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv"]
     content = None
-    for url in urls_export:
+    for url in urls:
         try:
             resp = requests.get(url, timeout=30, allow_redirects=True)
-            texto = resp.text[:500].strip()
-            if '<html' in texto.lower() or '<!doctype' in texto.lower():
-                continue
+            t = resp.text[:500].strip()
+            if '<html' in t.lower() or '<!doctype' in t.lower(): continue
             if resp.status_code == 200 and len(resp.content) > 50:
-                content = resp.content.decode('utf-8')
-                break
-        except:
-            continue
-    if content is None:
-        return []
+                content = resp.content.decode('utf-8'); break
+        except: continue
+    if content is None: return []
     entregas = []
     try:
         reader = csv.reader(io.StringIO(content))
         data_atual = ""
         for row in reader:
-            if not row or all(c.strip() == "" for c in row):
+            if not row or all(c.strip()=="" for c in row): continue
+            pc = row[0].strip() if row[0] else ""
+            if "PLANILHA DE ENTREGAS" in pc.upper():
+                mt = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', pc)
+                data_atual = f"{mt.group(3)}-{mt.group(2).zfill(2)}-{mt.group(1).zfill(2)}" if mt else ""
                 continue
-            primeira_coluna = row[0].strip() if row[0] else ""
-            if "PLANILHA DE ENTREGAS" in primeira_coluna.upper():
-                match = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', primeira_coluna)
-                if match:
-                    data_atual = f"{match.group(3)}-{match.group(2).zfill(2)}-{match.group(1).zfill(2)}"
-                else:
-                    data_atual = ""
-                continue
-            if primeira_coluna.upper() == "CLIENTES":
-                continue
+            if pc.upper() == "CLIENTES": continue
             if data_atual and len(row) >= 3:
-                entregador = row[2].strip().upper() if row[2] else ""
-                if entregador in ("RETIRADA", "RETRADA", "RETITADA"):
-                    entregador = "RETIRADA"
-                if entregador:
-                    entregas.append({
-                        "data": data_atual, "entregador": entregador,
-                        "cliente": row[0].strip() if row[0] else "",
-                        "nota": row[1].strip() if row[1] else "",
-                        "veiculo": row[6].strip() if len(row) > 6 and row[6] else "",
-                    })
-    except:
-        return []
+                ent = row[2].strip().upper() if row[2] else ""
+                if ent in ("RETIRADA","RETRADA","RETITADA"): ent = "RETIRADA"
+                if ent: entregas.append({"data": data_atual, "entregador": ent, "cliente": row[0].strip() if row[0] else "", "nota": row[1].strip() if row[1] else ""})
+    except: return []
     return entregas
 
-# ── API: BUSCA COM PARADA INTELIGENTE
 def listar_pedidos_periodo(data_inicio, data_fim, empresa, headers):
-    endpoint = empresa["endpoint"]
-    data_field = empresa["data_field"]
-    order_field = empresa["order_field"]
-    todos = []
-    offset = 0
-    limit = 500
-    pagina = 1
-    max_paginas = 200
-    while pagina <= max_paginas:
-        params = {"limit": limit, "offset": offset, "order": order_field, "sort": "Desc"}
-        try:
-            resp = requests.get(f"{BASE_URL}{endpoint}", headers=headers, params=params, timeout=30)
-        except:
-            break
-        if resp.status_code == 403:
-            break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
-            break
+    endpoint = empresa["endpoint"]; df = empresa["data_field"]; of = empresa["order_field"]
+    todos = []; offset = 0; limit = 500; pag = 1
+    while pag <= 200:
+        params = {"limit": limit, "offset": offset, "order": of, "sort": "Desc"}
+        try: resp = requests.get(f"{BASE_URL}{endpoint}", headers=headers, params=params, timeout=30)
+        except: break
+        if resp.status_code != 200: break
+        try: payload = resp.json()
+        except: break
         lote = payload.get("data", [])
-        if isinstance(lote, dict):
-            lote = [lote]
-        if not lote or not isinstance(lote, list):
-            break
+        if isinstance(lote, dict): lote = [lote]
+        if not lote or not isinstance(lote, list): break
         todos.extend(lote)
-        pedidos_antes = 0
-        for p in lote:
-            if not isinstance(p, dict):
-                continue
-            dp = normalizar_data(p.get(data_field, ""))
-            if dp and dp != "0000-00-00" and dp < data_inicio:
-                pedidos_antes += 1
-        if pedidos_antes > 0:
-            break
-        offset += limit
-        pagina += 1
-    filtrados = []
-    for p in todos:
-        if not isinstance(p, dict):
-            continue
-        dp = normalizar_data(p.get(data_field, ""))
-        if dp and dp != "0000-00-00" and data_inicio <= dp <= data_fim:
-            p[data_field] = dp
-            filtrados.append(p)
-    return filtrados
+        antes = sum(1 for p in lote if isinstance(p, dict) and normalizar_data(p.get(df,"")) and normalizar_data(p.get(df,"")) != "0000-00-00" and normalizar_data(p.get(df,"")) < data_inicio)
+        if antes > 0: break
+        offset += limit; pag += 1
+    return [p for p in todos if isinstance(p, dict) and (lambda dp: dp and dp != "0000-00-00" and data_inicio <= dp <= data_fim)(normalizar_data(p.get(df,""))) and not p.update({df: normalizar_data(p.get(df,""))})]
 
 def processar_pedidos(pedidos, empresa):
-    empresa_nome = empresa["nome"]
-    data_field = empresa["data_field"]
-    processados = []
+    en = empresa["nome"]; df = empresa["data_field"]; procs = []
     for p in pedidos:
-        if not isinstance(p, dict):
-            continue
-        status = p.get("status_pedido", "")
-        if status in STATUS_EXCLUIDOS:
-            continue
-        valor_str = p.get("valor_total_nota", "0") or "0"
-        try:
-            valor = float(valor_str)
-        except:
-            valor = 0.0
-        if empresa_nome == "GP DISTRIBUIDORA":
-            vendedor = "GP DISTRIBUIDORA"
-        else:
-            vendedor = normalizar_nome_vendedor(p.get("vendedor_pedido", ""))
-        data_ped = normalizar_data(p.get(data_field, ""))
-        id_pedido = str(p.get("id_ped", p.get("id_frente", p.get("id_pedido", ""))))
-        processados.append({
-            "id": id_pedido, "data": data_ped, "vendedor": vendedor,
-            "empresa": empresa_nome, "valor": round(valor, 2),
-            "status": status, "cliente": p.get("nome_cliente", ""),
-        })
-    return processados
+        if not isinstance(p, dict): continue
+        st = p.get("status_pedido", "")
+        if st in STATUS_EXCLUIDOS: continue
+        try: vl = float(p.get("valor_total_nota","0") or "0")
+        except: vl = 0.0
+        vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome_vendedor(p.get("vendedor_pedido",""))
+        procs.append({"id": str(p.get("id_ped", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(df,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
+    return procs
 
-# ── CMV (Custo de Mercadorias Vendidas)
-def buscar_todos_produtos(empresa):
-    """Lista todos os produtos cadastrados na empresa."""
-    headers = make_headers(empresa)
-    produtos = []
-    offset = 0
-    limit = 250
-    while True:
-        params = {"limit": limit, "offset": offset}
-        try:
-            resp = requests.get(f"{BASE_URL}/produtos/", headers=headers, params=params, timeout=30)
-        except:
-            break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
-            break
-        lote = payload.get("data", [])
-        if not lote or isinstance(lote, dict):
-            break
-        produtos.extend(lote)
-        if len(lote) < limit:
-            break
-        offset += limit
-    print(f"[CMV] Produtos encontrados ({empresa['nome']}): {len(produtos)}")
-    return produtos
-
-def buscar_estoque_produto(empresa, id_produto):
-    """Busca movimentos de estoque de um produto específico."""
-    headers = make_headers(empresa)
-    movimentos = []
-    offset = 0
-    limit = 250
-    while True:
-        params = {"limit": limit, "offset": offset}
-        try:
-            resp = requests.get(f"{BASE_URL}/produtos/{id_produto}/estoque", headers=headers, params=params, timeout=30)
-        except:
-            break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
-            break
-        lote = payload.get("data", [])
-        if not lote or isinstance(lote, dict):
-            break
-        movimentos.extend(lote)
-        if len(lote) < limit:
-            break
-        offset += limit
-    return movimentos
-
-def buscar_movimentos_estoque(empresa):
-    """Lista todos os produtos, depois busca estoque de cada um em paralelo."""
-    produtos = buscar_todos_produtos(empresa)
-    if not produtos:
-        print(f"[CMV] Nenhum produto encontrado para {empresa['nome']}")
-        return []
-
-    todos_movimentos = []
-
-    def fetch_one(prod):
-        # Tentar varios campos possiveis para o ID do produto
-        pid = str(prod.get("id_produto") or prod.get("id_prod") or prod.get("id") or "")
-        if not pid or pid == "0":
-            return []
-        return buscar_estoque_produto(empresa, pid)
-
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(fetch_one, p) for p in produtos]
-        for f in as_completed(futures):
-            try:
-                movs = f.result()
-                todos_movimentos.extend(movs)
-            except:
-                pass
-
-    print(f"[CMV] Estoque {empresa['nome']}: {len(todos_movimentos)} movimentos de {len(produtos)} produtos")
-    return todos_movimentos
-
-def calcular_saldo_estoque(movimentos, data_limite):
-    """Soma Entradas e subtrai Saidas ate a data limite."""
-    saldo = 0.0
-    entradas = 0
-    saidas = 0
-    for m in movimentos:
-        data_raw = m.get("data_cad_estoque", "")
-        # Se a data for 0000-00-00 ou vazia, incluir (movimento antigo)
-        if not data_raw or data_raw == "0000-00-00 00:00:00" or data_raw.startswith("0000-00-00"):
-            data_mov = "0000-00-00"
-        else:
-            data_mov = str(data_raw).strip()[:10]
-
-        # Se a data eh valida (0000-00-00 = antigo) ou anterior/igual a data_limite
-        if data_mov == "0000-00-00" or data_mov <= data_limite:
-            try:
-                valor = float(m.get("valor_estoque", 0) or 0)
-            except:
-                valor = 0.0
-            tipo = str(m.get("tipo_estoque", "")).lower().strip()
-            if tipo == "entrada":
-                saldo += valor
-                entradas += 1
-            elif tipo == "saida":
-                saldo -= valor
-                saidas += 1
-
-    print(f"Saldo ate {data_limite}: R$ {saldo:.2f} ({entradas} entradas, {saidas} saidas)")
-    return round(saldo, 2)
-
-
-
-def buscar_compras_periodo(empresa, data_inicio, data_fim):
-    headers = make_headers(empresa)
-    compras = []
-    offset = 0
-    limit = 250
-    while True:
+def buscar_compras_periodo(empresa, di, df):
+    headers = make_headers(empresa); compras = []; offset = 0; limit = 250; pag = 0
+    while pag < 50:
         params = {"limit": limit, "offset": offset, "order": "data_pedido", "sort": "Desc"}
-        try:
-            resp = requests.get(f"{BASE_URL}/entradas-mercadoria/", headers=headers, params=params, timeout=30)
-        except:
-            break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
-            break
+        try: resp = requests.get(f"{BASE_URL}/entradas-mercadoria/", headers=headers, params=params, timeout=30)
+        except: break
+        if resp.status_code != 200: break
+        try: payload = resp.json()
+        except: break
         lote = payload.get("data", [])
-        if not lote or isinstance(lote, dict):
-            break
-        tem_antes = False
+        if not lote or isinstance(lote, dict): break
+        ta = False
         for c in lote:
-            if not isinstance(c, dict):
-                continue
-            data_c = normalizar_data(c.get("data_pedido", ""))
-            status = c.get("status_pedido", "")
-            if data_c and data_inicio <= data_c <= data_fim and status == "Atendido":
-                compras.append(c)
-            if data_c and data_c < data_inicio:
-                tem_antes = True
-        if tem_antes:
-            break
-        offset += limit
-        if len(lote) < limit:
-            break
+            if not isinstance(c, dict): continue
+            dc = normalizar_data(c.get("data_pedido","")); st = c.get("status_pedido","")
+            if dc and di <= dc <= df and st == "Atendido": compras.append(c)
+            if dc and dc < di: ta = True
+        if ta: break
+        offset += limit; pag += 1
+        if len(lote) < limit: break
     return compras
 
-# ── CMV (Custo de Mercadorias Vendidas) - versao manual + compras automaticas
-_cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
-_cmv_lock = threading.Lock()
-
-def buscar_compras_periodo(empresa, data_inicio, data_fim):
-    """Busca entradas de mercadoria (compras) no periodo com status Atendido."""
-    headers = make_headers(empresa)
-    compras = []
-    offset = 0
-    limit = 250
-    max_paginas = 50
-    pagina = 0
-    while pagina < max_paginas:
-        params = {"limit": limit, "offset": offset, "order": "data_pedido", "sort": "Desc"}
-        try:
-            resp = requests.get(f"{BASE_URL}/entradas-mercadoria/", headers=headers, params=params, timeout=30)
-        except:
-            break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
-            break
-        lote = payload.get("data", [])
-        if not lote or isinstance(lote, dict):
-            break
-        tem_antes = False
-        for c in lote:
-            if not isinstance(c, dict):
-                continue
-            data_c = normalizar_data(c.get("data_pedido", ""))
-            status = c.get("status_pedido", "")
-            if data_c and data_inicio <= data_c <= data_fim and status == "Atendido":
-                compras.append(c)
-            if data_c and data_c < data_inicio:
-                tem_antes = True
-        if tem_antes:
-            break
-        offset += limit
-        pagina += 1
-        if len(lote) < limit:
-            break
-    return compras
-
-# ── CMV (Custo de Mercadorias Vendidas) - versao manual + compras automaticas
-_cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
-_cmv_lock = threading.Lock()
-
-def buscar_compras_periodo(empresa, data_inicio, data_fim):
-    """Busca entradas de mercadoria (compras) no periodo com status Atendido."""
-    headers = make_headers(empresa)
-    compras = []
-    offset = 0
-    limit = 250
-    max_paginas = 50
-    pagina = 0
-    while pagina < max_paginas:
-        params = {"limit": limit, "offset": offset, "order": "data_pedido", "sort": "Desc"}
-        try:
-            resp = requests.get(f"{BASE_URL}/entradas-mercadoria/", headers=headers, params=params, timeout=30)
-        except:
-            break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
-            break
-        lote = payload.get("data", [])
-        if not lote or isinstance(lote, dict):
-            break
-        tem_antes = False
-        for c in lote:
-            if not isinstance(c, dict):
-                continue
-            data_c = normalizar_data(c.get("data_pedido", ""))
-            status = c.get("status_pedido", "")
-            if data_c and data_inicio <= data_c <= data_fim and status == "Atendido":
-                compras.append(c)
-            if data_c and data_c < data_inicio:
-                tem_antes = True
-        if tem_antes:
-            break
-        offset += limit
-        pagina += 1
-        if len(lote) < limit:
-            break
-    return compras
-
-def calcular_cmv_background(data_inicial, data_final, est_ini_rm, est_ini_gp, est_fin_rm, est_fin_gp):
-    """Busca só as compras na API. Estoque é informado manualmente."""
+def calcular_cmv_background(di, df, eirm, eigp, efrm, efgp):
     with _cmv_lock:
-        if _cmv_cache["calculando"]:
-            return
-        _cmv_cache["calculando"] = True
-        _cmv_cache["params"] = f"{data_inicial}_{data_final}"
+        if _cmv_cache["calculando"]: return
+        _cmv_cache["calculando"] = True; _cmv_cache["params"] = f"{di}_{df}_{eirm}_{eigp}_{efrm}_{efgp}"
     try:
-        compras_rm = buscar_compras_periodo(EMPRESAS[0], data_inicial, data_final)
-        total_compras_rm = sum(float(c.get("valor_total_nota", 0) or 0) for c in compras_rm)
-        est_ini_total = est_ini_rm + est_ini_gp
-        est_fin_total = est_fin_rm + est_fin_gp
-        cmv = est_ini_total + total_compras_rm - est_fin_total
-        resultado = {
-            "status": "concluido",
-            "data_inicial": data_inicial,
-            "data_final": data_final,
-            "estoque_inicial_rm": est_ini_rm,
-            "estoque_inicial_gp": est_ini_gp,
-            "estoque_inicial_total": round(est_ini_total, 2),
-            "compras_rm": round(total_compras_rm, 2),
-            "compras_gp": 0.0,
-            "compras_total": round(total_compras_rm, 2),
-            "estoque_final_rm": est_fin_rm,
-            "estoque_final_gp": est_fin_gp,
-            "estoque_final_total": round(est_fin_total, 2),
-            "cmv": round(cmv, 2),
-        }
-        with _cmv_lock:
-            _cmv_cache["timestamp"] = time.time()
-            _cmv_cache["data"] = resultado
-            _cmv_cache["calculando"] = False
+        crm = buscar_compras_periodo(EMPRESAS[0], di, df)
+        tcrm = sum(float(c.get("valor_total_nota",0) or 0) for c in crm)
+        eit = eirm + eigp; eft = efrm + efgp; cmv = eit + tcrm - eft
+        r = {"status":"concluido","data_inicial":di,"data_final":df,"estoque_inicial_rm":eirm,"estoque_inicial_gp":eigp,"estoque_inicial_total":round(eit,2),"compras_rm":round(tcrm,2),"compras_gp":0.0,"compras_total":round(tcrm,2),"estoque_final_rm":efrm,"estoque_final_gp":efgp,"estoque_final_total":round(eft,2),"cmv":round(cmv,2)}
+        with _cmv_lock: _cmv_cache["timestamp"] = time.time(); _cmv_cache["data"] = r; _cmv_cache["calculando"] = False
     except Exception as e:
-        with _cmv_lock:
-            _cmv_cache["calculando"] = False
-            _cmv_cache["data"] = {"status": "erro", "erro": str(e)}
+        with _cmv_lock: _cmv_cache["calculando"] = False; _cmv_cache["data"] = {"status":"erro","erro":str(e)}
 
-# ── GERACAO DO DASHBOARD HTML
 def gerar_dashboard_html(pedidos, entregas):
-    dados_json = json.dumps(pedidos, ensure_ascii=False)
-    entregas_json = json.dumps(entregas, ensure_ascii=False)
-    with _metas_lock:
-        metas_json = json.dumps(_metas, ensure_ascii=False)
-        meta_consol = _metas_consolidada
-    data_geracao = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
+    dj = json.dumps(pedidos, ensure_ascii=False); ej = json.dumps(entregas, ensure_ascii=False)
+    with _metas_lock: mj = json.dumps(_metas, ensure_ascii=False); mc = _metas_consolidada
+    dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
     if pedidos:
-        datas = sorted([p["data"] for p in pedidos if p["data"]])
-        min_data = datas[0] if datas else date.today().isoformat()
-        max_data = datas[-1] if datas else date.today().isoformat()
-    else:
-        min_data = date.today().replace(day=1).isoformat()
-        max_data = date.today().isoformat()
+        ds = sorted([p["data"] for p in pedidos if p["data"]]); mind = ds[0] if ds else date.today().isoformat(); maxd = ds[-1] if ds else date.today().isoformat()
+    else: mind = date.today().replace(day=1).isoformat(); maxd = date.today().isoformat()
     html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Faturamento, Metas, Entregas & CMV</title>
+<title>Real Acái Distribuidora - Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f0f2f5;--card-bg:#fff;--primary:#2563eb;--primary-light:#dbeafe;--green:#16a34a;--green-light:#dcfce7;--amber:#f59e0b;--amber-light:#fef3c7;--red:#dc2626;--red-light:#fee2e2;--text:#1e293b;--text-muted:#64748b;--border:#e2e8f0;--shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);--shadow-lg:0 4px 6px rgba(0,0,0,.07),0 2px 4px rgba(0,0,0,.06);--radius:12px;}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-.header{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:24px 32px;}
-.header h1{font-size:24px;font-weight:700;}
-.header .subtitle{font-size:13px;opacity:.85;margin-top:4px;}
-.header .updated{font-size:12px;opacity:.7;margin-top:8px;}
-.container{max-width:1400px;margin:0 auto;padding:24px;}
-.filter-bar{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
-.filter-group{display:flex;align-items:center;gap:8px;}
-.filter-group label{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
-.filter-group input[type="date"]{padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s;}
-.filter-group input[type="date"]:focus{border-color:var(--primary);}
-.filter-group input[type="number"]{padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;color:var(--text);outline:none;width:140px;}
-.btn-apply{background:var(--primary);color:#fff;border:none;padding:9px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;}
-.btn-apply:hover{background:#1d4ed8;}
-.btn-preset{background:var(--primary-light);color:var(--primary);border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
-.btn-preset:hover{background:var(--primary);color:#fff;}
-.btn-save{background:var(--green);color:#fff;border:none;padding:9px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;}
-.btn-save:hover{background:#15803d;}
-.empresa-filter{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-.empresa-label{font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-right:4px;}
-.btn-empresa{background:var(--primary-light);color:var(--primary);border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
-.btn-empresa:hover{background:var(--primary);color:#fff;}
-.btn-empresa.active{background:var(--primary);color:#fff;}
-.section-title{font-size:20px;font-weight:700;margin:32px 0 16px;color:var(--text);display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:2px solid var(--border);}
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
-.kpi-card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;border-left:4px solid var(--primary);transition:box-shadow .2s;}
-.kpi-card:hover{box-shadow:var(--shadow-lg);}
-.kpi-card.green{border-left-color:var(--green);}
-.kpi-card.amber{border-left-color:var(--amber);}
-.kpi-card.red{border-left-color:var(--red);}
-.kpi-card.purple{border-left-color:#8b5cf6;}
-.kpi-card.teal{border-left-color:#14b8a6;}
-.kpi-label{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
-.kpi-value{font-size:26px;font-weight:700;color:var(--text);}
-.kpi-sub{font-size:12px;color:var(--text-muted);margin-top:4px;}
-.meta-section-title{font-size:18px;font-weight:700;margin-bottom:16px;color:var(--text);display:flex;align-items:center;gap:8px;justify-content:space-between;}
-.meta-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:24px;}
-.meta-card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px;transition:box-shadow .2s;}
-.meta-card:hover{box-shadow:var(--shadow-lg);}
-.meta-card.consolidado{grid-column:1/-1;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;}
-.meta-card.consolidado .meta-name{color:#fff;}
-.meta-card.consolidado .meta-sub{color:rgba(255,255,255,0.8);}
-.meta-card.consolidado .meta-progress-bar{background:rgba(255,255,255,0.2);}
-.meta-card.consolidado .meta-valor{color:#fff;}
-.meta-card.consolidado .meta-falta{color:rgba(255,255,255,0.8);}
-.meta-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
-.meta-avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0;}
-.meta-name{font-size:15px;font-weight:700;color:var(--text);}
-.meta-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
-.meta-progress-bar{background:var(--border);border-radius:12px;height:28px;overflow:hidden;position:relative;margin-bottom:10px;}
-.meta-progress-fill{height:100%;border-radius:12px;display:flex;align-items:center;padding-left:12px;color:#fff;font-size:12px;font-weight:700;transition:width .5s ease;min-width:0;}
-.meta-stats{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
-.meta-valor{font-weight:700;font-size:16px;}
-.meta-valor.atingido{color:var(--green);}
-.meta-valor.abaixo{color:var(--text);}
-.meta-status{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
-.status-bateu{background:var(--green-light);color:var(--green);}
-.status-perto{background:var(--amber-light);color:var(--amber);}
-.status-longe{background:var(--red-light);color:var(--red);}
-.status-semmeta{background:#f1f5f9;color:var(--text-muted);}
-.meta-falta{font-size:12px;color:var(--text-muted);margin-top:6px;}
-.metas-edit-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
-.metas-edit-row:last-child{border-bottom:none;}
-.metas-edit-label{flex:1;font-weight:600;font-size:14px;}
-.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;}
-@media(max-width:900px){.charts-grid{grid-template-columns:1fr;}}
-.chart-card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;}
-.chart-card.full{grid-column:1/-1;}
-.chart-title{font-size:16px;font-weight:700;margin-bottom:16px;}
-.chart-wrapper{position:relative;height:320px;}
-.table-card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:24px;}
-.table-card table{width:100%;border-collapse:collapse;}
-.table-card th{text-align:left;padding:12px 14px;font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);}
-.table-card td{padding:12px 14px;font-size:14px;border-bottom:1px solid var(--border);}
-.table-card tr:hover td{background:#f8fafc;}
-.table-card tr:last-child td{border-bottom:none;}
-.vendedor-name{font-weight:600;}
-.valor-cell{font-weight:600;color:var(--green);}
-.pct-bar{background:var(--border);border-radius:6px;height:8px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px;}
-.pct-fill{height:100%;border-radius:6px;transition:width .3s;}
-.no-data{text-align:center;padding:48px;color:var(--text-muted);font-size:16px;}
-.metas-panel{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 24px;margin-bottom:24px;display:none;}
-.metas-panel.active{display:block;}
+:root{--bg:#f0f2f5;--card:#fff;--pri:#2563eb;--pl:#dbeafe;--grn:#16a34a;--gl:#dcfce7;--amb:#f59e0b;--al:#fef3c7;--red:#dc2626;--rl:#fee2e2;--txt:#1e293b;--mut:#64748b;--brd:#e2e8f0;--sh:0 1px 3px rgba(0,0,0,.1);--shl:0 4px 6px rgba(0,0,0,.07);--r:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+.hdr{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:18px 32px;display:flex;align-items:center;justify-content:space-between}
+.hdr-logo{display:flex;align-items:center;gap:16px}
+.hdr-logo-c{width:52px;height:52px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#2563eb;flex-shrink:0;border:3px solid rgba(255,255,255,.3)}
+.hdr h1{font-size:21px;font-weight:700}
+.hdr .sub{font-size:13px;opacity:.85;margin-top:2px}
+.hdr .upd{font-size:12px;opacity:.7;text-align:right}
+.tabs{display:flex;background:var(--card);box-shadow:var(--sh);overflow-x:auto}
+.tab{flex:1;padding:14px 24px;border:none;background:none;font-size:15px;font-weight:600;color:var(--mut);cursor:pointer;transition:all .2s;border-bottom:4px solid transparent;white-space:nowrap}
+.tab:hover{background:var(--pl);color:var(--pri)}
+.tab.act{color:var(--pri);border-bottom-color:var(--pri);background:var(--pl)}
+.ctn{max-width:1400px;margin:0 auto;padding:24px}
+.tc{display:none}.tc.act{display:block}
+.fb{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.fg{display:flex;align-items:center;gap:8px}
+.fg label{font-size:13px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+.fg input[type=date]{padding:8px 12px;border:2px solid var(--brd);border-radius:8px;font-size:14px;outline:none}
+.fg input[type=number]{padding:8px 12px;border:2px solid var(--brd);border-radius:8px;font-size:14px;width:180px}
+.ba{background:var(--pri);color:#fff;border:none;padding:9px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.bp{background:var(--pl);color:var(--pri);border:none;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.bs{background:var(--grn);color:#fff;border:none;padding:9px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.ef{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.el{font-size:13px;font-weight:600;color:var(--mut);margin-right:4px}
+.be{background:var(--pl);color:var(--pri);border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.be:hover{background:var(--pri);color:#fff}.be.act{background:var(--pri);color:#fff}
+.st{font-size:18px;font-weight:700;margin:24px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--brd)}
+.kg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.kc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;border-left:4px solid var(--pri)}
+.kc:hover{box-shadow:var(--shl)}.kc.grn{border-left-color:var(--grn)}.kc.amb{border-left-color:var(--amb)}.kc.red{border-left-color:var(--red)}.kc.pur{border-left-color:#8b5cf6}.kc.tel{border-left-color:#14b8a6}
+.kl{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;margin-bottom:6px}
+.kv{font-size:26px;font-weight:700}.ks{font-size:12px;color:var(--mut);margin-top:4px}
+.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:24px}
+.mc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px}.mc:hover{box-shadow:var(--shl)}
+.mc.con{grid-column:1/-1;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff}
+.mc.con .mn{color:#fff}.mc.con .ms{color:rgba(255,255,255,.8)}.mc.con .mpb{background:rgba(255,255,255,.2)}.mc.con .mv{color:#fff}.mc.con .mf{color:rgba(255,255,255,.8)}
+.mh{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ma{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.mn{font-size:15px;font-weight:700}.ms{font-size:12px;color:var(--mut);margin-top:2px}
+.mpb{background:var(--brd);border-radius:12px;height:28px;overflow:hidden;margin-bottom:10px}
+.mpf{height:100%;border-radius:12px;display:flex;align-items:center;padding-left:12px;color:#fff;font-size:12px;font-weight:700;min-width:0}
+.mst{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.mv{font-weight:700;font-size:16px}.mv.at{color:var(--grn)}
+.msb{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase}
+.sb{background:var(--gl);color:var(--grn)}.sp{background:var(--al);color:var(--amb)}.sl{background:var(--rl);color:var(--red)}.sn{background:#f1f5f9;color:var(--mut)}
+.mf{font-size:12px;color:var(--mut);margin-top:6px}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+@media(max-width:900px){.cg{grid-template-columns:1fr}}
+.cc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px}.cc.f{grid-column:1/-1}
+.ct{font-size:16px;font-weight:700;margin-bottom:16px}.cw{position:relative;height:320px}
+.tc2{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:24px}
+.tc2 table{width:100%;border-collapse:collapse}
+.tc2 th{text-align:left;padding:12px 14px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;border-bottom:2px solid var(--brd)}
+.tc2 td{padding:12px 14px;font-size:14px;border-bottom:1px solid var(--brd)}
+.tc2 tr:hover td{background:#f8fafc}.tc2 tr:last-child td{border-bottom:none}
+.vn{font-weight:600}.vc{font-weight:600;color:var(--grn)}
+.pb{background:var(--brd);border-radius:6px;height:8px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px}
+.pf{height:100%;border-radius:6px}
+.nd{text-align:center;padding:48px;color:var(--mut);font-size:16px}
+.mp{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:24px;display:none}.mp.act{display:block}
+.mer{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--brd)}.mer:last-child{border-bottom:none}
+.mel{flex:1;font-weight:600;font-size:14px}
+.cig{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 </style>
 </head>
 <body>
-<div class="header">
-<h1>Dashboard de Faturamento, Metas, Entregas & CMV</h1>
-<div class="subtitle">REAL MAIS + GP DISTRIBUIDORA + Entregas - Vhsys API v2</div>
-<div class="updated">Dados gerados em: __DATA_GERACAO__</div>
+<div class="hdr"><div class="hdr-logo"><div class="hdr-logo-c">RA</div><div><h1>Real Acái Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
+<div class="tabs">
+<button class="tab act" onclick="sw('comercial',this)">📊 Comercial</button>
+<button class="tab" onclick="sw('logistica',this)">🚚 Logística</button>
+<button class="tab" onclick="sw('contabil',this)">💰 Contábil</button>
 </div>
-<div class="container">
-<div class="filter-bar">
-<div class="filter-group"><label>Data Inicial</label><input type="date" id="dataInicio" value="__MIN_DATA__"></div>
-<div class="filter-group"><label>Data Final</label><input type="date" id="dataFim" value="__MAX_DATA__"></div>
-<button class="btn-apply" onclick="aplicarFiltro()">Aplicar</button>
-<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
-<button class="btn-preset" onclick="presetHoje()">Hoje</button>
-<button class="btn-preset" onclick="preset7()">7 dias</button>
-<button class="btn-preset" onclick="presetMesAtual()">Mes Atual</button>
-<button class="btn-preset" onclick="presetTudo()">Tudo</button>
+<div class="ctn">
+<div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Até</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mês</button><button class="bp" onclick="pt()">Tudo</button></div></div>
+<div class="fb" style="padding:14px 24px"><div class="ef"><span class="el">Empresa:</span><button class="be act" onclick="se('todos',this)">Consolidado</button><button class="be" onclick="se('REAL MAIS',this)">REAL MAIS</button><button class="be" onclick="se('GP DISTRIBUIDORA',this)">GP</button></div></div>
+<div id="tc-com" class="tc act">
+<div class="kg" id="kpi"></div>
+<div class="st">Metas - <span id="mesL"></span> <button class="bp" onclick="tmp()" style="background:var(--al);color:var(--amb);float:right">Gerenciar Metas</button></div>
+<div class="mg" id="metas"></div>
+<div class="mp" id="mp"><div class="ct">Editar Metas</div><div id="mef"></div><div style="margin-top:16px;display:flex;gap:8px"><button class="bs" onclick="svm()">Salvar</button><button class="bp" onclick="tmp()">Cancelar</button></div></div>
+<div class="cg"><div class="cc"><div class="ct">Faturamento por Vendedora</div><div class="cw"><canvas id="cV"></canvas></div></div><div class="cc"><div class="ct">Faturamento Diário</div><div class="cw"><canvas id="cD"></canvas></div></div><div class="cc f"><div class="ct">Participação</div><div class="cw"><canvas id="cK"></canvas></div></div></div>
+<div class="tc2"><div class="ct">Detalhamento por Vendedora</div><table><thead><tr><th>Vendedora</th><th>Emp</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>Meta</th><th>%Meta</th><th>%Tot</th></tr></thead><tbody id="tb"></tbody></table></div>
 </div>
+<div id="tc-log" class="tc">
+<div class="kg" id="kpiE"></div>
+<div class="cg"><div class="cc"><div class="ct">Entregas por Entregador</div><div class="cw"><canvas id="cE"></canvas></div></div><div class="cc"><div class="ct">Entregas por Dia</div><div class="cw"><canvas id="cED"></canvas></div></div></div>
+<div class="tc2"><div class="ct">Detalhamento de Entregas</div><table><thead><tr><th>Entregador</th><th>Total</th><th>%</th></tr></thead><tbody id="tbE"></tbody></table></div>
 </div>
-<div class="filter-bar" style="padding:14px 24px;">
-<div class="empresa-filter">
-<span class="empresa-label">Empresa:</span>
-<button class="btn-empresa active" onclick="setEmpresa('todos', this)">Consolidado</button>
-<button class="btn-empresa" onclick="setEmpresa('REAL MAIS', this)">REAL MAIS</button>
-<button class="btn-empresa" onclick="setEmpresa('GP DISTRIBUIDORA', this)">GP Distribuidora</button>
+<div id="tc-con" class="tc">
+<div class="kg" id="kpiC"></div>
+<div class="st">CMV - Custo de Mercadorias Vendidas</div>
+<div class="fb" style="flex-direction:column;align-items:flex-start;gap:12px">
+<div class="cig"><div class="fg"><label>Estoque Inicial</label><input type="date" id="cmvDi"></div><div class="fg"><label>Estoque Final</label><input type="date" id="cmvDf"></div></div>
+<div class="cig"><div class="fg"><label>Est.Ini RM</label><input type="number" id="cmvEi" step="0.01" placeholder="Ex:1029623.51" style="width:160px"></div><div class="fg"><label>Est.Ini GP</label><input type="number" id="cmvEig" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin RM</label><input type="number" id="cmvEf" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin GP</label><input type="number" id="cmvEfg" step="0.01" placeholder="0" style="width:160px"></div></div>
+<button class="ba" onclick="calcCMV()">Calcular CMV</button>
 </div>
-</div>
-<div class="kpi-grid" id="kpiGrid"></div>
-<div id="metaSection">
-<div class="meta-section-title">
-<span>Metas Mensais - <span id="mesMetaLabel"></span></span>
-<button class="btn-preset" onclick="toggleMetasPanel()" style="background:var(--amber-light);color:var(--amber);">Gerenciar Metas</button>
-</div>
-<div class="meta-grid" id="metaGrid"></div>
-</div>
-<div class="metas-panel" id="metasPanel">
-<div class="chart-title">Editar Metas Mensais</div>
-<div id="metasEditFields"></div>
-<div style="margin-top:16px;display:flex;gap:8px;">
-<button class="btn-save" onclick="salvarMetas()">Salvar Metas</button>
-<button class="btn-preset" onclick="toggleMetasPanel()">Cancelar</button>
-</div>
-</div>
-<div class="charts-grid">
-<div class="chart-card"><div class="chart-title">Faturamento por Vendedora</div><div class="chart-wrapper"><canvas id="chartVendedor"></canvas></div></div>
-<div class="chart-card"><div class="chart-title">Faturamento Diario</div><div class="chart-wrapper"><canvas id="chartDiario"></canvas></div></div>
-<div class="chart-card full"><div class="chart-title">Participacao no Faturamento</div><div class="chart-wrapper"><canvas id="chartDonut"></canvas></div></div>
-</div>
-<div class="table-card"><div class="chart-title">Detalhamento por Vendedora</div>
-<table><thead><tr><th>Vendedora</th><th>Empresa</th><th>Faturamento</th><th>Vendas</th><th>Ticket Medio</th><th>Meta Mensal</th><th>% Meta</th><th>% do Total</th></tr></thead>
-<tbody id="tabelaBody"></tbody></table>
-</div>
-<div class="section-title">CMV - Custo de Mercadorias Vendidas</div>
-<div class="filter-bar" style="padding:16px 24px;flex-direction:column;align-items:flex-start;gap:12px;">
-<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-<div class="filter-group"><label>Data Estoque Inicial</label><input type="date" id="cmvDataInicial"></div>
-<div class="filter-group"><label>Data Estoque Final</label><input type="date" id="cmvDataFinal"></div>
-</div>
-<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
-<div class="filter-group"><label>Est. Inicial RM (R$)</label><input type="number" id="cmvEstIniRM" step="0.01" placeholder="Ex: 1029623.51" style="width:180px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;"></div>
-<div class="filter-group"><label>Est. Inicial GP (R$)</label><input type="number" id="cmvEstIniGP" step="0.01" placeholder="Ex: 50000.00" style="width:180px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;"></div>
-<div class="filter-group"><label>Est. Final RM (R$)</label><input type="number" id="cmvEstFinRM" step="0.01" placeholder="Ex: 980000.00" style="width:180px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;"></div>
-<div class="filter-group"><label>Est. Final GP (R$)</label><input type="number" id="cmvEstFinGP" step="0.01" placeholder="Ex: 48000.00" style="width:180px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;"></div>
-</div>
-<button class="btn-apply" onclick="calcularCMV()">Calcular CMV</button>
-</div>
-<div id="cmvResultado" style="margin-bottom:24px;"></div>
-<div class="table-card"><div class="chart-title">Detalhamento de Entregas</div>
-<table><thead><tr><th>Entregador</th><th>Total de Entregas</th><th>% do Total</th></tr></thead>
-<tbody id="tabelaEntregas"></tbody></table>
+<div id="cmvR" style="margin-bottom:24px"></div>
+<div class="tc2"><div class="ct">Faturamento por Empresa</div><table><thead><tr><th>Empresa</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>%</th></tr></thead><tbody id="tbEmp"></tbody></table></div>
 </div>
 </div>
 <script>
-const TODOS_PEDIDOS = __DADOS_JSON__;
-const TODAS_ENTREGAS = __ENTREGAS_JSON__;
-const METAS = __METAS_JSON__;
-const META_CONSOLIDADA = __META_CONSOLIDADA__;
-const CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
-let chartVend=null, chartDia=null, chartDonut=null, chartEntregador=null, chartEntregasDia=null;
-let empresaFilter = 'todos';
-function normNome(nome) { if (!nome) return 'Sem vendedor'; return String(nome).replace(/[\xa0\t\n\r]/g, ' ').replace(/\s+/g, ' ').trim(); }
-function buscarMeta(nome) { const nomeLower = nome.toLowerCase(); const chave = Object.keys(METAS).find(k => k.toLowerCase() === nomeLower); return chave ? METAS[chave] : 0; }
-function init() {
-  const hoje = new Date().toISOString().split('T')[0];
-  document.getElementById('dataInicio').value = hoje;
-  document.getElementById('dataFim').value = hoje;
-  aplicarFiltro();
-}
-function setEmpresa(emp, btn) { empresaFilter = emp; document.querySelectorAll('.btn-empresa').forEach(b => b.classList.remove('active')); if (btn) btn.classList.add('active'); aplicarFiltro(); }
-function presetHoje() { const h=new Date().toISOString().split('T')[0]; setDatas(h,h); }
-function preset7() { const f=new Date(); const i=new Date(); i.setDate(i.getDate()-6); setDatas(i.toISOString().split('T')[0], f.toISOString().split('T')[0]); }
-function presetMesAtual() { const a=new Date(); const ini=new Date(a.getFullYear(), a.getMonth(), 1); const fim=new Date(a.getFullYear(), a.getMonth()+1, 0); setDatas(ini.toISOString().split('T')[0], fim.toISOString().split('T')[0]); }
-function presetTudo() { setDatas('__MIN_DATA__', '__MAX_DATA__'); }
-function setDatas(ini, fim) { document.getElementById('dataInicio').value = ini; document.getElementById('dataFim').value = fim; aplicarFiltro(); }
-function aplicarFiltro() {
-  const ini = document.getElementById('dataInicio').value;
-  const fim = document.getElementById('dataFim').value;
-  if (!ini || !fim) return;
-  let pedidos = TODOS_PEDIDOS.filter(p => p.data >= ini && p.data <= fim);
-  if (empresaFilter !== 'todos') { pedidos = pedidos.filter(p => p.empresa === empresaFilter); }
-  const mesRef = fim.substring(0, 7);
-  document.getElementById('mesMetaLabel').textContent = formatarMes(mesRef);
-  // Calcular faturamento do mes atual para meta consolidada
-  const hoje = new Date();
-  const mesAtual = hoje.toISOString().substring(0, 7);
-  const fatMesAtual = TODOS_PEDIDOS.filter(p => p.data.substring(0, 7) === mesAtual && (empresaFilter === 'todos' || p.empresa === empresaFilter)).reduce((s, p) => s + p.valor, 0);
-  if (pedidos.length === 0) { mostrarSemDados(); } else {
-    const porVend = {};
-    pedidos.forEach(p => { const v = normNome(p.vendedor); if (!porVend[v]) porVend[v] = { nome: v, faturamento: 0, vendas: 0, empresa: p.empresa }; porVend[v].faturamento += p.valor; porVend[v].vendas += 1; });
-    let vendedores = Object.values(porVend).sort((a, b) => b.faturamento - a.faturamento);
-    vendedores.forEach(v => v.faturamento = Math.round(v.faturamento * 100) / 100);
-    const fatTotal = vendedores.reduce((s, v) => s + v.faturamento, 0);
-    const qtdVendas = vendedores.reduce((s, v) => s + v.vendas, 0);
-    const ticketMedio = qtdVendas > 0 ? fatTotal / qtdVendas : 0;
-    const diasPeriodo = contarDias(ini, fim);
-    renderKPIs(fatTotal, qtdVendas, ticketMedio, diasPeriodo, vendedores.length);
-    renderMetas(vendedores, mesRef, fatMesAtual);
-    renderChartVendedor(vendedores);
-    renderChartDiario(pedidos);
-    renderChartDonut(vendedores, fatTotal);
-    renderTabela(vendedores, fatTotal);
+const TP=__DJ__,TE=__EJ__,M=__MJ__,MC=__MC__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
+let cV=null,cD=null,cK=null,cE=null,cED=null,ef='todos';
+function sw(t,b){document.querySelectorAll('.tc').forEach(x=>x.classList.remove('act'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('act'));document.getElementById('tc-'+t).classList.add('act');b.classList.add('act')}
+function nn(n){if(!n)return'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim()}
+function bm(n){const nl=n.toLowerCase();const k=Object.keys(M).find(x=>x.toLowerCase()===nl);return k?M[k]:0}
+function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fd(i){const[y,m,d]=i.split('-');return d+'/'+m}
+function cd(i,f){const d1=new Date(i+'T00:00:00');const d2=new Date(f+'T00:00:00');return Math.round((d2-d1)/86400000)+1}
+function fm2(mr){const[a,m]=mr.split('-');const n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return n[parseInt(m)-1]+' '+a}
+function init(){const h=new Date().toISOString().split('T')[0];document.getElementById('dIni').value=h;document.getElementById('dFim').value=h;af()}
+function se(e,b){ef=e;document.querySelectorAll('.be').forEach(x=>x.classList.remove('act'));if(b)b.classList.add('act');af()}
+function ph(){const h=new Date().toISOString().split('T')[0];sd(h,h)}
+function p7(){const f=new Date();const i=new Date();i.setDate(i.getDate()-6);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
+function pm(){const a=new Date();const i=new Date(a.getFullYear(),a.getMonth(),1);const f=new Date(a.getFullYear(),a.getMonth()+1,0);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
+function pt(){sd('__MIN__','__MAX__')}
+function sd(i,f){document.getElementById('dIni').value=i;document.getElementById('dFim').value=f;af()}
+function af(){
+  const ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;if(!ini||!fim)return;
+  let ped=TP.filter(p=>p.data>=ini&&p.data<=fim);if(ef!=='todos')ped=ped.filter(p=>p.empresa===ef);
+  const mr=fim.substring(0,7);document.getElementById('mesL').textContent=fm2(mr);
+  const ma=new Date().toISOString().substring(0,7);
+  const fma=TP.filter(p=>p.data.substring(0,7)===ma&&(ef==='todos'||p.empresa===ef)).reduce((s,p)=>s+p.valor,0);
+  if(ped.length===0){msd()}else{
+    const pv={};ped.forEach(p=>{const v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});
+    let vs=Object.values(pv).sort((a,b)=>b.f-a.f);vs.forEach(v=>v.f=Math.round(v.f*100)/100);
+    const ft=vs.reduce((s,v)=>s+v.f,0),qv=vs.reduce((s,v)=>s+v.q,0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);
+    rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv);
   }
-  let entregas = TODAS_ENTREGAS.filter(e => e.data >= ini && e.data <= fim);
-  renderEntregas(entregas, ini, fim);
+  let ent=TE.filter(e=>e.data>=ini&&e.data<=fim);re(ent,ini,fim);
 }
-function renderKPIs(fatTotal, qtdVendas, ticketMedio, dias, nVend) {
-  let el = 'Consolidado'; if (empresaFilter === 'REAL MAIS') el = 'REAL MAIS'; else if (empresaFilter === 'GP DISTRIBUIDORA') el = 'GP Distribuidora';
-  document.getElementById('kpiGrid').innerHTML =
-    '<div class="kpi-card"><div class="kpi-label">Faturamento ' + el + '</div><div class="kpi-value">' + fmtMoeda(fatTotal) + '</div><div class="kpi-sub">' + dias + ' dia(s)</div></div>' +
-    '<div class="kpi-card green"><div class="kpi-label">Quantidade de Vendas</div><div class="kpi-value">' + qtdVendas + '</div><div class="kpi-sub">pedidos nao cancelados</div></div>' +
-    '<div class="kpi-card amber"><div class="kpi-label">Ticket Medio</div><div class="kpi-value">' + fmtMoeda(ticketMedio) + '</div><div class="kpi-sub">por venda</div></div>' +
-    '<div class="kpi-card purple"><div class="kpi-label">Vendedoras Ativas</div><div class="kpi-value">' + nVend + '</div><div class="kpi-sub">com vendas no periodo</div></div>';
+function rk(ft,qv,tm,dp,nv){
+  let el='Consolidado';if(ef==='REAL MAIS')el='REAL MAIS';else if(ef==='GP DISTRIBUIDORA')el='GP';
+  document.getElementById('kpi').innerHTML='<div class="kc"><div class="kl">Faturamento '+el+'</div><div class="kv">'+fm(ft)+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc grn"><div class="kl">Vendas</div><div class="kv">'+qv+'</div><div class="ks">não cancelados</div></div><div class="kc amb"><div class="kl">Ticket Médio</div><div class="kv">'+fm(tm)+'</div><div class="ks">por venda</div></div><div class="kc pur"><div class="kl">Vendedoras Ativas</div><div class="kv">'+nv+'</div><div class="ks">no período</div></div>';
 }
-function renderMetas(vendedores, mesRef, fatMesAtual) {
-  let html = '';
-  if (empresaFilter === 'todos') {
-    const totalMeta = META_CONSOLIDADA;
-    const totalFat = fatMesAtual;
-    const pctCons = totalMeta > 0 ? (totalFat / totalMeta * 100) : 0; const pctBarCons = Math.min(pctCons, 100);
-    const faltaCons = Math.max(totalMeta - totalFat, 0);
-    let scCons, stCons, cbCons;
-    if (pctCons >= 100) { scCons='status-bateu'; stCons='Meta atingida'; cbCons='#16a34a'; }
-    else if (pctCons >= 70) { scCons='status-perto'; stCons='Quase la'; cbCons='#f59e0b'; }
-    else { scCons='status-longe'; stCons='Em progresso'; cbCons='#dc2626'; }
-    const totalVendasMes = TODOS_PEDIDOS.filter(p => p.data.substring(0, 7) === mesRef.substring(0, 7)).reduce((s, p) => s + 1, 0);
-    let tfCons = '';
-    if (totalMeta > 0 && pctCons < 100) { tfCons = 'Faltam <strong style="color:#fff;">' + fmtMoeda(faltaCons) + '</strong> para a meta consolidada (mes atual)'; }
-    else if (totalMeta > 0 && pctCons >= 100) { tfCons = 'Superou a meta consolidada em <strong style="color:#fff;">' + fmtMoeda(totalFat - totalMeta) + '</strong>'; }
-    html += '<div class="meta-card consolidado"><div class="meta-header"><div class="meta-avatar" style="background:#fff;color:#2563eb;">C</div><div><div class="meta-name">META CONSOLIDADA - Mes Atual (' + formatarMes(mesRef) + ')</div><div class="meta-sub">' + totalVendasMes + ' venda(s) no mes - Ticket: ' + fmtMoeda(totalVendasMes > 0 ? totalFat / totalVendasMes : 0) + '</div></div></div><div class="meta-progress-bar"><div class="meta-progress-fill" style="width:' + pctBarCons + '%;background:' + cbCons + '">' + pctCons.toFixed(0) + '%</div></div><div class="meta-stats"><div><span class="meta-valor">' + fmtMoeda(totalFat) + '</span><span style="color:rgba(255,255,255,0.7);font-size:13px;"> / ' + fmtMoeda(totalMeta) + '</span></div><span class="meta-status ' + scCons + '">' + stCons + '</span></div>' + (tfCons ? '<div class="meta-falta">' + tfCons + '</div>' : '') + '</div>';
+function rc(ped,ft,qv){
+  const pe={};ped.forEach(p=>{if(!pe[p.empresa])pe[p.empresa]={f:0,q:0};pe[p.empresa].f+=p.valor;pe[p.empresa].q+=1});
+  document.getElementById('kpiC').innerHTML='<div class="kc"><div class="kl">Faturamento Total</div><div class="kv">'+fm(ft)+'</div><div class="ks">'+qv+' venda(s)</div></div><div class="kc grn"><div class="kl">REAL MAIS</div><div class="kv">'+fm(pe['REAL MAIS']?pe['REAL MAIS'].f:0)+'</div><div class="ks">'+(pe['REAL MAIS']?pe['REAL MAIS'].q:0)+' venda(s)</div></div><div class="kc amb"><div class="kl">GP DISTRIBUIDORA</div><div class="kv">'+fm(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].f:0)+'</div><div class="ks">'+(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].q:0)+' venda(s)</div></div><div class="kc pur"><div class="kl">Ticket Geral</div><div class="kv">'+fm(qv>0?ft/qv:0)+'</div><div class="ks">consolidado</div></div>';
+  let h='';Object.entries(pe).sort((a,b)=>b[1].f-a[1].f).forEach(([n,d],i)=>{const p=ft>0?(d.f/ft*100):0;const t=d.q>0?d.f/d.q:0;const c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+n+'</td><td class="vc">'+fm(d.f)+'</td><td>'+d.q+'</td><td>'+fm(t)+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});
+  document.getElementById('tbEmp').innerHTML=h;
+}
+function rm(vs,mr,fma){
+  let h='';
+  if(ef==='todos'){
+    const tm2=MC,tf=fma,pc=tm2>0?(tf/tm2*100):0,pb=Math.min(pc,100),fl=Math.max(tm2-tf,0);
+    let sc,st,cb;if(pc>=100){sc='sb';st='Meta atingida';cb='#16a34a'}else if(pc>=70){sc='sp';st='Quase lá';cb='#f59e0b'}else{sc='sl';st='Em progresso';cb='#dc2626'}
+    const tv=TP.filter(p=>p.data.substring(0,7)===mr.substring(0,7)).reduce((s,p)=>s+1,0);
+    let tf2='';if(tm2>0&&pc<100)tf2='Faltam <strong style="color:#fff">'+fm(fl)+'</strong> para a meta';else if(tm2>0&&pc>=100)tf2='Superou em <strong style="color:#fff">'+fm(tf-tm2)+'</strong>';
+    h+='<div class="mc con"><div class="mh"><div class="ma" style="background:#fff;color:#2563eb">C</div><div><div class="mn">META CONSOLIDADA ('+fm2(mr)+')</div><div class="ms">'+tv+' venda(s) - Ticket: '+fm(tv>0?tf/tv:0)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pc.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv">'+fm(tf)+'</span><span style="color:rgba(255,255,255,.7);font-size:13px"> / '+fm(tm2)+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf2?'<div class="mf">'+tf2+'</div>':'')+'</div>';
   }
-  const nomesComVendas = new Set(vendedores.map(v => v.nome.toLowerCase()));
-  const todas = [...vendedores];
-  Object.keys(METAS).forEach(nome => { if (!nomesComVendas.has(nome.toLowerCase())) { const empMeta = (nome === 'GP DISTRIBUIDORA') ? 'GP DISTRIBUIDORA' : 'REAL MAIS'; if (empresaFilter === 'todos' || empresaFilter === empMeta) { todas.push({ nome: nome, faturamento: 0, vendas: 0, empresa: empMeta }); } } });
-  todas.sort((a, b) => { const ma = buscarMeta(a.nome); const mb = buscarMeta(b.nome); const pa = ma > 0 ? a.faturamento / ma : 0; const pb = mb > 0 ? b.faturamento / mb : 0; return pb - pa; });
-  todas.forEach((v, i) => {
-    const meta = buscarMeta(v.nome); const cor = CORES[i % CORES.length];
-    const iniciais = v.nome.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
-    const pctMeta = meta > 0 ? (v.faturamento / meta * 100) : 0; const pctBar = Math.min(pctMeta, 100);
-    let sc, st, cb;
-    if (meta === 0) { sc='status-semmeta'; st='Sem meta'; cb='#94a3b8'; }
-    else if (pctMeta >= 100) { sc='status-bateu'; st='Meta atingida'; cb='#16a34a'; }
-    else if (pctMeta >= 70) { sc='status-perto'; st='Quase la'; cb='#f59e0b'; }
-    else { sc='status-longe'; st='Em progresso'; cb='#dc2626'; }
-    const falta = meta > 0 ? Math.max(meta - v.faturamento, 0) : 0;
-    const tm = v.vendas > 0 ? v.faturamento / v.vendas : 0;
-    let tf = '';
-    if (meta > 0 && pctMeta < 100) { tf = 'Faltam <strong>' + fmtMoeda(falta) + '</strong> para a meta'; if (tm > 0) { tf += ' - approx ' + Math.ceil(falta / tm) + ' venda(s)'; } }
-    else if (meta > 0 && pctMeta >= 100) { tf = 'Superou a meta em <strong>' + fmtMoeda(v.faturamento - meta) + '</strong>'; }
-    const badgeEmp = v.empresa === 'GP DISTRIBUIDORA' ? '<span style="background:#fef3c7;color:#f59e0b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px;">GP</span>' : '<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px;">RM</span>';
-    html += '<div class="meta-card"><div class="meta-header"><div class="meta-avatar" style="background:' + cor + '">' + iniciais + '</div><div><div class="meta-name">' + v.nome + badgeEmp + '</div><div class="meta-sub">' + v.vendas + ' venda(s) - Ticket: ' + fmtMoeda(tm) + '</div></div></div><div class="meta-progress-bar"><div class="meta-progress-fill" style="width:' + pctBar + '%;background:' + cb + '">' + pctMeta.toFixed(0) + '%</div></div><div class="meta-stats"><div><span class="meta-valor ' + (pctMeta >= 100 ? 'atingido' : 'abaixo') + '">' + fmtMoeda(v.faturamento) + '</span><span style="color:var(--text-muted);font-size:13px;"> / ' + (meta > 0 ? fmtMoeda(meta) : '-') + '</span></div><span class="meta-status ' + sc + '">' + st + '</span></div>' + (tf ? '<div class="meta-falta">' + tf + '</div>' : '') + '</div>';
+  const nw=new Set(vs.map(v=>v.n.toLowerCase()));const td=[...vs];
+  Object.keys(M).forEach(n=>{if(!nw.has(n.toLowerCase())){const ee=(n==='GP DISTRIBUIDORA')?'GP DISTRIBUIDORA':'REAL MAIS';if(ef==='todos'||ef===ee)td.push({n:n,f:0,q:0,e:ee})}});
+  td.sort((a,b)=>{const ma2=bm(a.n),mb2=bm(b.n);return(mb2>0?b.f/mb2:0)-(ma2>0?a.f/ma2:0)});
+  td.forEach((v,i)=>{const m2=bm(v.n),c=C[i%C.length],ini=v.n.split(' ').map(p=>p[0]).join('').substring(0,2).toUpperCase(),pm2=m2>0?(v.f/m2*100):0,pb2=Math.min(pm2,100);
+    let sc,st,cb;if(m2===0){sc='sn';st='Sem meta';cb='#94a3b8'}else if(pm2>=100){sc='sb';st='Batida';cb='#16a34a'}else if(pm2>=70){sc='sp';st='Quase';cb='#f59e0b'}else{sc='sl';st='Progresso';cb='#dc2626'}
+    const fl=m2>0?Math.max(m2-v.f,0):0,tm3=v.q>0?v.f/v.q:0;let tf3='';
+    if(m2>0&&pm2<100){tf3='Faltam <strong>'+fm(fl)+'</strong>'}else if(m2>0&&pm2>=100){tf3='Superou <strong>'+fm(v.f-m2)+'</strong>'}
+    const be=v.e==='GP DISTRIBUIDORA'?'<span style="background:#fef3c7;color:#f59e0b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px">GP</span>':'<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px">RM</span>';
+    h+='<div class="mc"><div class="mh"><div class="ma" style="background:'+c+'">'+ini+'</div><div><div class="mn">'+v.n+be+'</div><div class="ms">'+v.q+' venda(s) - Ticket: '+fm(tm3)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb2+'%;background:'+cb+'">'+pm2.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv '+(pm2>=100?'at':'')+'">'+fm(v.f)+'</span><span style="color:var(--mut);font-size:13px"> / '+(m2>0?fm(m2):'-')+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf3?'<div class="mf">'+tf3+'</div>':'')+'</div>';
   });
-  document.getElementById('metaGrid').innerHTML = html;
+  document.getElementById('metas').innerHTML=h;
 }
-function toggleMetasPanel() {
-  const panel = document.getElementById('metasPanel');
-  if (panel.classList.contains('active')) { panel.classList.remove('active'); return; }
-  panel.classList.add('active');
-  let html = '';
-  Object.keys(METAS).forEach(nome => {
-    html += '<div class="metas-edit-row"><div class="metas-edit-label">' + nome + '</div><input type="number" id="meta_' + nome.replace(/\s+/g, '_') + '" value="' + METAS[nome] + '" step="0.01" style="padding:8px;border:2px solid var(--border);border-radius:8px;width:180px;"></div>';
-  });
-  html += '<div class="metas-edit-row"><div class="metas-edit-label"><strong>META CONSOLIDADA</strong></div><input type="number" id="meta_consol" value="' + META_CONSOLIDADA + '" step="0.01" style="padding:8px;border:2px solid var(--border);border-radius:8px;width:180px;"></div>';
-  document.getElementById('metasEditFields').innerHTML = html;
+function tmp(){const p=document.getElementById('mp');if(p.classList.contains('act')){p.classList.remove('act');return}p.classList.add('act');let h='';Object.keys(M).forEach(n=>{h+='<div class="mer"><div class="mel">'+n+'</div><input type="number" id="m_'+n.replace(/\s+/g,'_')+'" value="'+M[n]+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:180px"></div>'});h+='<div class="mer"><div class="mel"><strong>CONSOLIDADA</strong></div><input type="number" id="m_c" value="'+MC+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:180px"></div>';document.getElementById('mef').innerHTML=h}
+function svm(){const d={};Object.keys(M).forEach(n=>{const e=document.getElementById('m_'+n.replace(/\s+/g,'_'));if(e)d[n]=parseFloat(e.value)||0});const ec=document.getElementById('m_c');if(ec)d['_consolidada']=parseFloat(ec.value)||0;fetch('/api/metas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json()).then(x=>{if(x.status==='ok'){alert('Metas salvas!');location.reload()}else alert('Erro')}).catch(e=>alert('Erro:'+e))}
+function re(ent,ini,fim){
+  if(!ent||ent.length===0){document.getElementById('kpiE').innerHTML='<div class="nd">Nenhuma entrega no período.</div>';document.getElementById('tbE').innerHTML='';if(cE)cE.destroy();if(cED)cED.destroy();return}
+  const pe={},pd={};ent.forEach(e=>{if(!pe[e.entregador])pe[e.entregador]=0;pe[e.entregador]++;if(!pd[e.data])pd[e.data]=0;pd[e.data]++});
+  const te=ent.length,er=Object.keys(pe).filter(n=>n!=='RETIRADA'),ter=er.length,tr=pe['RETIRADA']||0,dp=cd(ini,fim);
+  document.getElementById('kpiE').innerHTML='<div class="kc tel"><div class="kl">Total Entregas</div><div class="kv">'+te+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc"><div class="kl">Entregadores</div><div class="kv">'+ter+'</div><div class="ks">ativos</div></div><div class="kc amb"><div class="kl">Retiradas</div><div class="kv">'+tr+'</div><div class="ks">no balcão</div></div><div class="kc grn"><div class="kl">Média</div><div class="kv">'+(ter>0?(te/ter).toFixed(0):0)+'</div><div class="ks">por pessoa</div></div>';
+  const x=document.getElementById('cE').getContext('2d');if(cE)cE.destroy();const eo=Object.entries(pe).sort((a,b)=>b[1]-a[1]).filter(([n])=>n!=='RETIRADA');
+  cE=new Chart(x,{type:'bar',data:{labels:eo.map(x=>x[0]),datasets:[{data:eo.map(x=>x[1]),backgroundColor:eo.map((_,i)=>C[i%C.length]+'cc'),borderColor:eo.map((_,i)=>C[i%C.length]),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{stepSize:1}}}}});
+  const x2=document.getElementById('cED').getContext('2d');if(cED)cED.destroy();const tk=Object.keys(pd).sort(),dc=[],vd=[];tk.forEach(d=>{if(pd[d]>0){dc.push(d);vd.push(pd[d])}});
+  const g=x2.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(20,184,166,0.3)');g.addColorStop(1,'rgba(20,184,166,0.02)');
+  cED=new Chart(x2,{type:'line',data:{labels:dc.map(fd),datasets:[{data:vd,borderColor:'#14b8a6',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#14b8a6'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1}}}}});
+  let h='';Object.entries(pe).sort((a,b)=>b[1]-a[1]).forEach(([n,q],i)=>{const p=te>0?(q/te*100):0;const c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+(n==='RETIRADA'?'RETIRADA':n)+'</td><td>'+q+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});
+  document.getElementById('tbE').innerHTML=h;
 }
-function salvarMetas() {
-  const dados = {};
-  Object.keys(METAS).forEach(nome => {
-    const el = document.getElementById('meta_' + nome.replace(/\s+/g, '_'));
-    if (el) { dados[nome] = parseFloat(el.value) || 0; }
-  });
-  const elConsol = document.getElementById('meta_consol');
-  if (elConsol) { dados['_consolidada'] = parseFloat(elConsol.value) || 0; }
-  fetch('/api/metas', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados) })
-    .then(r => r.json())
-    .then(d => { if (d.status === 'ok') { alert('Metas salvas com sucesso!'); location.reload(); } else { alert('Erro: ' + (d.erro || 'desconhecido')); } })
-    .catch(e => alert('Erro ao salvar: ' + e));
-}
-function renderEntregas(entregas, ini, fim) {
-  if (!entregas || entregas.length === 0) {
-    document.getElementById('kpiEntregas').innerHTML = '<div class="no-data">Nenhuma entrega registrada no periodo.</div>';
-    document.getElementById('tabelaEntregas').innerHTML = '';
-    if (chartEntregador) chartEntregador.destroy();
-    if (chartEntregasDia) chartEntregasDia.destroy();
-    return;
-  }
-  const porEntregador = {}; const porDia = {};
-  entregas.forEach(e => { const nome = e.entregador; if (!porEntregador[nome]) porEntregador[nome] = 0; porEntregador[nome]++; if (!porDia[e.data]) porDia[e.data] = 0; porDia[e.data]++; });
-  const totalEntregas = entregas.length;
-  const entregadoresReais = Object.keys(porEntregador).filter(n => n !== 'RETIRADA');
-  const totalEntregadoresReais = entregadoresReais.length;
-  const totalRetiradas = porEntregador['RETIRADA'] || 0;
-  const diasPeriodo = contarDias(ini, fim);
-  document.getElementById('kpiEntregas').innerHTML =
-    '<div class="kpi-card teal"><div class="kpi-label">Total de Entregas</div><div class="kpi-value">' + totalEntregas + '</div><div class="kpi-sub">' + diasPeriodo + ' dia(s)</div></div>' +
-    '<div class="kpi-card"><div class="kpi-label">Entregadores Ativos</div><div class="kpi-value">' + totalEntregadoresReais + '</div><div class="kpi-sub">no periodo</div></div>' +
-    '<div class="kpi-card amber"><div class="kpi-label">Retiradas no Balcao</div><div class="kpi-value">' + totalRetiradas + '</div><div class="kpi-sub">sem entregador</div></div>' +
-    '<div class="kpi-card green"><div class="kpi-label">Media por Entregador</div><div class="kpi-value">' + (totalEntregadoresReais > 0 ? (totalEntregas / totalEntregadoresReais).toFixed(0) : 0) + '</div><div class="kpi-sub">entregas por pessoa</div></div>';
-  const ctxE = document.getElementById('chartEntregador').getContext('2d');
-  if (chartEntregador) chartEntregador.destroy();
-  const entrOrdenados = Object.entries(porEntregador).sort((a, b) => b[1] - a[1]).filter(([nome]) => nome !== 'RETIRADA');
-  chartEntregador = new Chart(ctxE, { type: 'bar', data: { labels: entrOrdenados.map(x => x[0]), datasets: [{ label: 'Entregas', data: entrOrdenados.map(x => x[1]), backgroundColor: entrOrdenados.map((_, i) => CORES[i % CORES.length] + 'cc'), borderColor: entrOrdenados.map((_, i) => CORES[i % CORES.length]), borderWidth: 2, borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Entregas: ' + c.raw } } }, scales: { x: { ticks: { stepSize: 1 } } } } });
-  const ctxED = document.getElementById('chartEntregasDia').getContext('2d');
-  if (chartEntregasDia) chartEntregasDia.destroy();
-  const todasDatas = Object.keys(porDia).sort();
-  const datasComEntregas = []; const valoresDia = [];
-  todasDatas.forEach(d => { if (porDia[d] > 0) { datasComEntregas.push(d); valoresDia.push(porDia[d]); } });
-  const g2 = ctxED.createLinearGradient(0, 0, 0, 320);
-  g2.addColorStop(0, 'rgba(20,184,166,0.3)'); g2.addColorStop(1, 'rgba(20,184,166,0.02)');
-  chartEntregasDia = new Chart(ctxED, { type: 'line', data: { labels: datasComEntregas.map(fmtData), datasets: [{ label: 'Entregas', data: valoresDia, borderColor: '#14b8a6', backgroundColor: g2, borderWidth: 3, fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#14b8a6', pointHoverRadius: 7 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Entregas: ' + c.raw } } }, scales: { y: { ticks: { stepSize: 1 } } } } });
-  let htmlT = '';
-  const entrTabela = Object.entries(porEntregador).sort((a, b) => b[1] - a[1]);
-  entrTabela.forEach(([nome, qtd], i) => { const pct = totalEntregas > 0 ? (qtd / totalEntregas * 100) : 0; const cor = CORES[i % CORES.length]; const isRetirada = nome === 'RETIRADA'; htmlT += '<tr><td class="vendedor-name"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + cor + ';margin-right:8px;"></span>' + (isRetirada ? 'RETIRADA' : nome) + '</td><td>' + qtd + '</td><td><span class="pct-bar"><span class="pct-fill" style="width:' + pct + '%;background:' + cor + '"></span></span>' + pct.toFixed(1) + '%</td></tr>'; });
-  document.getElementById('tabelaEntregas').innerHTML = htmlT;
-}
-function renderChartVendedor(v) {
-  const ctx = document.getElementById('chartVendedor').getContext('2d');
-  if (chartVend) chartVend.destroy();
-  chartVend = new Chart(ctx, { type: 'bar', data: { labels: v.map(x => x.nome), datasets: [{ label: 'Faturamento', data: v.map(x => x.faturamento), backgroundColor: v.map((_, i) => CORES[i % CORES.length] + 'cc'), borderColor: v.map((_, i) => CORES[i % CORES.length]), borderWidth: 2, borderRadius: 6 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Faturamento: ' + fmtMoeda(c.raw) } } }, scales: { x: { ticks: { callback: v => 'R$ ' + v.toLocaleString('pt-BR') } } } } });
-}
-function renderChartDiario(pedidos) {
-  const ctx = document.getElementById('chartDiario').getContext('2d');
-  if (chartDia) chartDia.destroy();
-  const pd = {};
-  pedidos.forEach(p => { if (!pd[p.data]) pd[p.data] = 0; pd[p.data] += p.valor; });
-  const datasComVendas = Object.keys(pd).sort();
-  const valores = datasComVendas.map(d => pd[d]);
-  const g = ctx.createLinearGradient(0, 0, 0, 320);
-  g.addColorStop(0, 'rgba(37,99,235,0.3)'); g.addColorStop(1, 'rgba(37,99,235,0.02)');
-  chartDia = new Chart(ctx, { type: 'line', data: { labels: datasComVendas.map(fmtData), datasets: [{ label: 'Faturamento', data: valores, borderColor: '#2563eb', backgroundColor: g, borderWidth: 3, fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: '#2563eb', pointHoverRadius: 7 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Faturamento: ' + fmtMoeda(c.raw) } } }, scales: { y: { ticks: { callback: v => 'R$ ' + v.toLocaleString('pt-BR') } } } } });
-}
-function renderChartDonut(v, fatTotal) {
-  const ctx = document.getElementById('chartDonut').getContext('2d');
-  if (chartDonut) chartDonut.destroy();
-  chartDonut = new Chart(ctx, { type: 'doughnut', data: { labels: v.map(x => x.nome), datasets: [{ data: v.map(x => x.faturamento), backgroundColor: v.map((_, i) => CORES[i % CORES.length]), borderColor: '#fff', borderWidth: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { padding: 16, font: { size: 13 } } }, tooltip: { callbacks: { label: c => { const pct = ((c.raw / fatTotal) * 100).toFixed(1); return c.label + ': ' + fmtMoeda(c.raw) + ' (' + pct + '%)'; } } } } } });
-}
-function renderTabela(v, fatTotal) {
-  let html = '';
-  v.forEach((x, i) => { const pct = fatTotal > 0 ? (x.faturamento / fatTotal * 100) : 0; const t = x.vendas > 0 ? x.faturamento / x.vendas : 0; const meta = buscarMeta(x.nome); const pm = meta > 0 ? (x.faturamento / meta * 100) : 0; const cor = CORES[i % CORES.length]; const cm = pm >= 100 ? '#16a34a' : pm >= 70 ? '#f59e0b' : '#dc2626'; const badgeEmp = x.empresa === 'GP DISTRIBUIDORA' ? '<span style="background:#fef3c7;color:#f59e0b;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">GP</span>' : '<span style="background:#dbeafe;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">RM</span>'; html += '<tr><td class="vendedor-name"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + cor + ';margin-right:8px;"></span>' + x.nome + '</td><td>' + badgeEmp + '</td><td class="valor-cell">' + fmtMoeda(x.faturamento) + '</td><td>' + x.vendas + '</td><td>' + fmtMoeda(t) + '</td><td>' + (meta > 0 ? fmtMoeda(meta) : '<span style="color:var(--text-muted)">-</span>') + '</td><td><span class="pct-bar"><span class="pct-fill" style="width:' + Math.min(pm, 100) + '%;background:' + cm + '"></span></span><strong style="color:' + cm + '">' + pm.toFixed(0) + '%</strong></td><td><span class="pct-bar"><span class="pct-fill" style="width:' + pct + '%;background:' + cor + '"></span></span>' + pct.toFixed(1) + '%</td></tr>'; });
-  document.getElementById('tabelaBody').innerHTML = html;
-}
-function mostrarSemDados() { document.getElementById('kpiGrid').innerHTML = '<div class="no-data">Nenhum pedido no periodo.</div>'; document.getElementById('metaGrid').innerHTML = ''; document.getElementById('tabelaBody').innerHTML = ''; if (chartVend) chartVend.destroy(); if (chartDia) chartDia.destroy(); if (chartDonut) chartDonut.destroy(); }
-function fmtMoeda(v) { return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function fmtData(iso) { const [y, m, d] = iso.split('-'); return d + '/' + m; }
-function contarDias(ini, fim) { const d1 = new Date(ini + 'T00:00:00'); const d2 = new Date(fim + 'T00:00:00'); return Math.round((d2 - d1) / 86400000) + 1; }
-function formatarMes(mr) { const [ano, mes] = mr.split('-'); const n = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']; return n[parseInt(mes) - 1] + ' ' + ano; }
-function calcularCMV() {
-  const ini = document.getElementById('cmvDataInicial').value;
-  const fim = document.getElementById('cmvDataFinal').value;
-  const estIniRM = document.getElementById('cmvEstIniRM').value || 0;
-  const estIniGP = document.getElementById('cmvEstIniGP').value || 0;
-  const estFinRM = document.getElementById('cmvEstFinRM').value || 0;
-  const estFinGP = document.getElementById('cmvEstFinGP').value || 0;
-  if (!ini || !fim) { alert('Selecione as duas datas'); return; }
-  if (!estIniRM && !estIniGP && !estFinRM && !estFinGP) { alert('Informe ao menos um valor de estoque'); return; }
-  document.getElementById('cmvResultado').innerHTML = '<div class="kpi-card" style="text-align:center;padding:40px;"><div style="width:40px;height:40px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite;"></div><p style="color:#64748b;">Buscando compras do periodo...</p></div><style>@keyframes spin{to{transform:rotate(360deg);}}</style>';
-  buscarCMV(ini, fim, estIniRM, estIniGP, estFinRM, estFinGP);
-}
-function buscarCMV(ini, fim, estIniRM, estIniGP, estFinRM, estFinGP) {
-  const url = '/cmv?data_inicial=' + ini + '&data_final=' + fim + '&est_ini_rm=' + estIniRM + '&est_ini_gp=' + estIniGP + '&est_fin_rm=' + estFinRM + '&est_fin_gp=' + estFinGP;
-  fetch(url)
-    .then(r => r.json())
-    .then(data => {
-      if (data.status === 'calculando' || data.status === 'iniciando') { setTimeout(() => buscarCMV(ini, fim, estIniRM, estIniGP, estFinRM, estFinGP), 5000); }
-      else if (data.status === 'erro') { document.getElementById('cmvResultado').innerHTML = '<div class="kpi-card red"><div class="kpi-label">Erro</div><div class="kpi-value" style="font-size:16px;">' + data.erro + '</div></div>'; }
-      else { renderCMV(data); }
-    })
-    .catch(() => { setTimeout(() => buscarCMV(ini, fim, estIniRM, estIniGP, estFinRM, estFinGP), 5000); });
-}
-function renderCMV(d) {
-  const fmt = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  document.getElementById('cmvResultado').innerHTML =
-    '<div class="table-card"><div class="chart-title">CMV de ' + d.data_inicial.split('-').reverse().join('/') + ' a ' + d.data_final.split('-').reverse().join('/') + '</div>' +
-    '<table><thead><tr><th>Componente</th><th>REAL MAIS</th><th>GP DISTRIBUIDORA</th><th>Total</th></tr></thead><tbody>' +
-    '<tr><td class="vendedor-name">(+) Estoque Inicial</td><td class="valor-cell">' + fmt(d.estoque_inicial_rm) + '</td><td class="valor-cell">' + fmt(d.estoque_inicial_gp) + '</td><td class="valor-cell" style="font-size:16px;">' + fmt(d.estoque_inicial_total) + '</td></tr>' +
-    '<tr><td class="vendedor-name">(+) Compras no Periodo (automatico)</td><td class="valor-cell">' + fmt(d.compras_rm) + '</td><td class="valor-cell">' + fmt(d.compras_gp) + '</td><td class="valor-cell" style="font-size:16px;">' + fmt(d.compras_total) + '</td></tr>' +
-    '<tr><td class="vendedor-name">(-) Estoque Final</td><td>' + fmt(d.estoque_final_rm) + '</td><td>' + fmt(d.estoque_final_gp) + '</td><td style="font-size:16px;">' + fmt(d.estoque_final_total) + '</td></tr>' +
-    '<tr style="border-top:3px solid #2563eb;"><td class="vendedor-name" style="font-size:16px;">= CMV Total</td><td></td><td></td><td class="valor-cell" style="font-size:20px;color:#dc2626;">' + fmt(d.cmv) + '</td></tr>' +
-    '</tbody></table></div>';
-}
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.type === 'date') aplicarFiltro(); });
-window.addEventListener('DOMContentLoaded', init);
+function rcV(v){const x=document.getElementById('cV').getContext('2d');if(cV)cV.destroy();cV=new Chart(x,{type:'bar',data:{labels:v.map(x=>x.n),datasets:[{data:v.map(x=>x.f),backgroundColor:v.map((_,i)=>C[i%C.length]+'cc'),borderColor:v.map((_,i)=>C[i%C.length]),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fm(c.raw)}}},scales:{x:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')}}}}})}
+function rcD(ped){const x=document.getElementById('cD').getContext('2d');if(cD)cD.destroy();const pd={};ped.forEach(p=>{if(!pd[p.data])pd[p.data]=0;pd[p.data]+=p.valor});const dk=Object.keys(pd).sort(),vl=dk.map(d=>pd[d]);const g=x.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(37,99,235,0.3)');g.addColorStop(1,'rgba(37,99,235,0.02)');cD=new Chart(x,{type:'line',data:{labels:dk.map(fd),datasets:[{data:vl,borderColor:'#2563eb',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#2563eb'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fm(c.raw)}}},scales:{y:{ticks:{callback:v=>'R$ '+v.toLocaleString('pt-BR')}}}}})}
+function rcK(v,ft){const x=document.getElementById('cK').getContext('2d');if(cK)cK.destroy();cK=new Chart(x,{type:'doughnut',data:{labels:v.map(x=>x.n),datasets:[{data:v.map(x=>x.f),backgroundColor:v.map((_,i)=>C[i%C.length]),borderColor:'#fff',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{padding:16,font:{size:13}}},tooltip:{callbacks:{label:c=>{const p=((c.raw/ft)*100).toFixed(1);return c.label+': '+fm(c.raw)+' ('+p+'%)'}}}}}})}
+function rt(v,ft){let h='';v.forEach((x,i)=>{const p=ft>0?(x.f/ft*100):0;const t=x.q>0?x.f/x.q:0;const m2=bm(x.n),pm2=m2>0?(x.f/m2*100):0;const c=C[i%C.length],cm=pm2>=100?'#16a34a':pm2>=70?'#f59e0b':'#dc2626';const be=x.e==='GP DISTRIBUIDORA'?'<span style="background:#fef3c7;color:#f59e0b;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">GP</span>':'<span style="background:#dbeafe;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">RM</span>';h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+x.n+'</td><td>'+be+'</td><td class="vc">'+fm(x.f)+'</td><td>'+x.q+'</td><td>'+fm(t)+'</td><td>'+(m2>0?fm(m2):'-')+'</td><td><span class="pb"><span class="pf" style="width:'+Math.min(pm2,100)+'%;background:'+cm+'"></span></span><strong style="color:'+cm+'">'+pm2.toFixed(0)+'%</strong></td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});document.getElementById('tb').innerHTML=h}
+function msd(){document.getElementById('kpi').innerHTML='<div class="nd">Nenhum pedido no período.</div>';document.getElementById('metas').innerHTML='';document.getElementById('tb').innerHTML='';document.getElementById('kpiC').innerHTML='<div class="nd">Sem dados.</div>';document.getElementById('tbEmp').innerHTML='';if(cV)cV.destroy();if(cD)cD.destroy();if(cK)cK.destroy()}
+function calcCMV(){const i=document.getElementById('cmvDi').value,f=document.getElementById('cmvDf').value;if(!i||!f){alert('Selecione as datas');return}const ei=document.getElementById('cmvEi').value||0,eig=document.getElementById('cmvEig').value||0,ef=document.getElementById('cmvEf').value||0,efg=document.getElementById('cmvEfg').value||0;document.getElementById('cmvR').innerHTML='<div class="kc" style="text-align:center;padding:40px"><div style="width:40px;height:40px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 16px;animation:sp 1s linear infinite"></div><p style="color:#64748b">Buscando compras...</p></div><style>@keyframes sp{to{transform:rotate(360deg)}}</style>';bCMV(i,f,ei,eig,ef,efg)}
+function bCMV(i,f,ei,eig,ef,efg){fetch('/cmv?data_inicial='+i+'&data_final='+f+'&est_ini_rm='+ei+'&est_ini_gp='+eig+'&est_fin_rm='+ef+'&est_fin_gp='+efg).then(r=>r.json()).then(d=>{if(d.status==='calculando'||d.status==='iniciando'){setTimeout(()=>bCMV(i,f,ei,eig,ef,efg),5000)}else if(d.status==='erro'){document.getElementById('cmvR').innerHTML='<div class="kc red"><div class="kl">Erro</div><div class="kv" style="font-size:16px">'+d.erro+'</div></div>'}else{rCMV(d)}}).catch(()=>setTimeout(()=>bCMV(i,f,ei,eig,ef,efg),5000))}
+function rCMV(d){const f=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});document.getElementById('cmvR').innerHTML='<div class="tc2"><div class="ct">CMV de '+d.data_inicial.split('-').reverse().join('/')+' a '+d.data_final.split('-').reverse().join('/')+'</div><table><thead><tr><th>Componente</th><th>REAL MAIS</th><th>GP</th><th>Total</th></tr></thead><tbody><tr><td class="vn">(+) Estoque Inicial</td><td class="vc">'+f(d.estoque_inicial_rm)+'</td><td class="vc">'+f(d.estoque_inicial_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.estoque_inicial_total)+'</td></tr><tr><td class="vn">(+) Compras (auto)</td><td class="vc">'+f(d.compras_rm)+'</td><td class="vc">'+f(d.compras_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.compras_total)+'</td></tr><tr><td class="vn">(-) Estoque Final</td><td>'+f(d.estoque_final_rm)+'</td><td>'+f(d.estoque_final_gp)+'</td><td style="font-size:16px">'+f(d.estoque_final_total)+'</td></tr><tr style="border-top:3px solid #2563eb"><td class="vn" style="font-size:16px">= CMV</td><td></td><td></td><td class="vc" style="font-size:20px;color:#dc2626">'+f(d.cmv)+'</td></tr></tbody></table></div>'}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.type==='date')af()});
+window.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>'''
-    html = html.replace("__DADOS_JSON__", dados_json)
-    html = html.replace("__ENTREGAS_JSON__", entregas_json)
-    html = html.replace("__METAS_JSON__", metas_json)
-    html = html.replace("__META_CONSOLIDADA__", str(meta_consol))
-    html = html.replace("__DATA_GERACAO__", data_geracao)
-    html = html.replace("__MIN_DATA__", min_data)
-    html = html.replace("__MAX_DATA__", max_data)
+    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
-# ── BUSCA DE DADOS EM PARALELO (mes a mes)
 def buscar_dados_de_mes(ano, mes, empresa):
-    dia_final = monthrange(ano, mes)[1]
-    data_inicio = f"{ano}-{mes:02d}-01"
-    data_fim = f"{ano}-{mes:02d}-{dia_final:02d}"
-    headers = make_headers(empresa)
-    pedidos_brutos = listar_pedidos_periodo(data_inicio, data_fim, empresa, headers)
-    return processar_pedidos(pedidos_brutos, empresa)
+    df = monthrange(ano, mes)[1]
+    di = f"{ano}-{mes:02d}-01"; dff = f"{ano}-{mes:02d}-{df:02d}"
+    h = make_headers(empresa)
+    return processar_pedidos(listar_pedidos_periodo(di, dff, empresa, h), empresa)
 
 def buscar_dados_background():
     with _cache_lock:
-        if _cache["buscando"]:
-            return
+        if _cache["buscando"]: return
         _cache["buscando"] = True
     try:
-        hoje = date.today()
-        ano = hoje.year
-        mes_atual = hoje.month
-        tarefas = []
-        for mes in range(1, mes_atual + 1):
-            for emp in EMPRESAS:
-                tarefas.append((ano, mes, emp))
-        todos_pedidos = []
-        with ThreadPoolExecutor(max_workers=12) as executor:
-            futures = { executor.submit(buscar_dados_de_mes, ano, mes, emp): (mes, emp["nome"]) for (ano, mes, emp) in tarefas }
-            for future in as_completed(futures):
-                try:
-                    todos_pedidos.extend(future.result())
-                except:
-                    pass
-        entregas = ler_dados_entregas()
-        html = gerar_dashboard_html(todos_pedidos, entregas)
+        hoje = date.today(); ano = hoje.year; ma = hoje.month
+        tarefas = [(ano, mes, emp) for mes in range(1, ma+1) for emp in EMPRESAS]
+        todos = []
+        with ThreadPoolExecutor(max_workers=12) as ex:
+            fs = {ex.submit(buscar_dados_de_mes, a, m, e): (m, e["nome"]) for (a, m, e) in tarefas}
+            for f in as_completed(fs):
+                try: todos.extend(f.result())
+                except: pass
+        ent = ler_dados_entregas()
+        html = gerar_dashboard_html(todos, ent)
         with _cache_lock:
-            _cache["timestamp"] = time.time()
-            _cache["html"] = html
-            _cache["erro"] = ""
-            _cache["buscando"] = False
+            _cache["timestamp"] = time.time(); _cache["html"] = html; _cache["erro"] = ""; _cache["buscando"] = False
     except Exception as e:
-        with _cache_lock:
-            _cache["erro"] = str(e)
-            _cache["buscando"] = False
+        with _cache_lock: _cache["erro"] = str(e); _cache["buscando"] = False
 
-# ── PAGINA DE LOADING
-LOADING_HTML = '''<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Carregando Dashboard...</title>
-<style>
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;}
-.loader{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07);}
-.spinner{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:spin 1s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-h1{color:#1e293b;font-size:20px;margin:0 0 8px;}
-p{color:#64748b;font-size:14px;margin:0;}
-</style>
-<meta http-equiv="refresh" content="10">
-</head>
-<body>
-<div class="loader">
-<div class="spinner"></div>
-<h1>Buscando dados...</h1>
-<p>Aguarde, estamos coletando as informacoes de vendas e entregas.</p>
-<p style="margin-top:8px;font-size:12px;color:#94a3b8;">Esta pagina vai atualizar automaticamente em 10 segundos.</p>
-</div>
-</body>
-</html>'''
+LOADING_HTML = '''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carregando...</title><style>body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}</style><meta http-equiv="refresh" content="10"></head><body><div class="l"><div class="s"></div><h1>Buscando dados...</h1><p>Aguarde, coletando vendas e entregas.</p></div></body></html>'''
 
-# ── ROTAS FLASK
 @app.route('/')
 def dashboard():
-    agora = time.time()
     with _cache_lock:
-        tempo_decorrido = agora - _cache["timestamp"]
-        if _cache["html"] and tempo_decorrido < CACHE_TEMPO_SEGUNDOS:
-            return _cache["html"]
-        if _cache["buscando"]:
-            return LOADING_HTML
-    thread = threading.Thread(target=buscar_dados_background, daemon=True)
-    thread.start()
+        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS: return _cache["html"]
+        if _cache["buscando"]: return LOADING_HTML
+    threading.Thread(target=buscar_dados_background, daemon=True).start()
     return LOADING_HTML
 
 @app.route('/atualizar')
 def forcar_atualizacao():
-    with _cache_lock:
-        _cache["timestamp"] = 0
-        _cache["html"] = ""
-        _cache["buscando"] = False
-    thread = threading.Thread(target=buscar_dados_background, daemon=True)
-    thread.start()
+    with _cache_lock: _cache["timestamp"] = 0; _cache["html"] = ""; _cache["buscando"] = False
+    threading.Thread(target=buscar_dados_background, daemon=True).start()
     return "<script>window.location.href='/';</script>"
 
 @app.route('/cmv')
 def cmv_endpoint():
-    data_ini = request.args.get('data_inicial', '')
-    data_fim = request.args.get('data_final', '')
-    est_ini_rm = float(request.args.get('est_ini_rm', 0) or 0)
-    est_ini_gp = float(request.args.get('est_ini_gp', 0) or 0)
-    est_fin_rm = float(request.args.get('est_fin_rm', 0) or 0)
-    est_fin_gp = float(request.args.get('est_fin_gp', 0) or 0)
-    if not data_ini or not data_fim:
-        return jsonify({"status": "erro", "erro": "Datas nao informadas"})
-    params_key = f"{data_ini}_{data_fim}_{est_ini_rm}_{est_ini_gp}_{est_fin_rm}_{est_fin_gp}"
+    di = request.args.get('data_inicial', ''); df = request.args.get('data_final', '')
+    eirm = float(request.args.get('est_ini_rm', 0) or 0); eigp = float(request.args.get('est_ini_gp', 0) or 0)
+    efrm = float(request.args.get('est_fin_rm', 0) or 0); efgp = float(request.args.get('est_fin_gp', 0) or 0)
+    if not di or not df: return jsonify({"status": "erro", "erro": "Datas nao informadas"})
+    pk = f"{di}_{df}_{eirm}_{eigp}_{efrm}_{efgp}"
     with _cmv_lock:
-        if _cmv_cache["data"] and _cmv_cache["params"] == params_key and not _cmv_cache["calculando"]:
-            return jsonify(_cmv_cache["data"])
-        if _cmv_cache["calculando"] and _cmv_cache["params"] == params_key:
-            return jsonify({"status": "calculando"})
-    thread = threading.Thread(target=calcular_cmv_background, args=(data_ini, data_fim, est_ini_rm, est_ini_gp, est_fin_rm, est_fin_gp), daemon=True)
-    thread.start()
+        if _cmv_cache["data"] and _cmv_cache["params"] == pk and not _cmv_cache["calculando"]: return jsonify(_cmv_cache["data"])
+        if _cmv_cache["calculando"] and _cmv_cache["params"] == pk: return jsonify({"status": "calculando"})
+    threading.Thread(target=calcular_cmv_background, args=(di, df, eirm, eigp, efrm, efgp), daemon=True).start()
     return jsonify({"status": "iniciando"})
 
 @app.route('/api/metas', methods=['GET', 'POST'])
 def api_metas():
     global _metas_consolidada
     if request.method == 'GET':
-        with _metas_lock:
-            return jsonify({"metas": _metas, "consolidada": _metas_consolidada})
-    else:
-        dados = request.get_json()
-        if not dados:
-            return jsonify({"status": "erro", "erro": "Dados nao enviados"}), 400
-        with _metas_lock:
-            if '_consolidada' in dados:
-                _metas_consolidada = float(dados['_consolidada'])
-            for chave, valor in dados.items():
-                if chave == '_consolidada':
-                    continue
-                _metas[chave] = float(valor)
-        with _cache_lock:
-            _cache["timestamp"] = 0
-            _cache["html"] = ""
-        return jsonify({"status": "ok"})
+        with _metas_lock: return jsonify({"metas": _metas, "consolidada": _metas_consolidada})
+    dados = request.get_json()
+    if not dados: return jsonify({"status": "erro", "erro": "Dados nao enviados"}), 400
+    with _metas_lock:
+        if '_consolidada' in dados: _metas_consolidada = float(dados['_consolidada'])
+        for k, v in dados.items():
+            if k != '_consolidada': _metas[k] = float(v)
+    with _cache_lock: _cache["timestamp"] = 0; _cache["html"] = ""
+    return jsonify({"status": "ok"})
 
-# ── INICIALIZACAO
 def init_background():
-    time.sleep(2)
-    buscar_dados_background()
+    time.sleep(2); buscar_dados_background()
 
-_init_thread = threading.Thread(target=init_background, daemon=True)
-_init_thread.start()
+threading.Thread(target=init_background, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"Dashboard online rodando em http://0.0.0.0:{port}")
+    print(f"Dashboard online em http://0.0.0.0:{port}")
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
