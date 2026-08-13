@@ -225,15 +225,19 @@ def processar_pedidos(pedidos, empresa):
 
 # ── CMV (Custo de Mercadorias Vendidas)
 def buscar_movimentos_estoque(empresa):
-    """Busca todos os movimentos de estoque de uma empresa usando http.client (preserva //)."""
-    headers = make_headers(empresa)
-    # Converter headers para formato dict simples (http.client exige str)
-    http_headers = {k: str(v) for k, v in headers.items()}
+    """Busca todos os movimentos de estoque usando http.client (preserva //)."""
+    http_headers = {
+        'access-token': empresa["access_token"],
+        'secret-access-token': empresa["secret_token"],
+        'Cache-Control': 'no-cache',
+        'User-Agent': 'MinhaAplicacao/1.0',
+        'Content-Type': 'application/json'
+    }
     movimentos = []
     offset = 0
     limit = 250
     while True:
-        path = f"/v2/produtos//estoque?limit={limit}&offset={offset}"
+        path = f"/produtos//estoque?limit={limit}&offset={offset}&data_cad_estoque=null"
         try:
             conn = http.client.HTTPSConnection("api.vhsys.com", timeout=30)
             conn.request("GET", path, "", http_headers)
@@ -241,7 +245,8 @@ def buscar_movimentos_estoque(empresa):
             data_raw = res.read().decode("utf-8")
             conn.close()
             payload = json.loads(data_raw)
-        except:
+        except Exception as e:
+            print(f"Erro ao buscar estoque: {e}")
             break
         if payload.get("code") != 200:
             break
@@ -255,23 +260,29 @@ def buscar_movimentos_estoque(empresa):
     return movimentos
 
 def calcular_saldo_estoque(movimentos, data_limite):
+    """Soma Entradas e subtrai Saidas ate a data limite."""
     saldo = 0.0
     for m in movimentos:
         data_raw = m.get("data_cad_estoque", "")
-        if not data_raw or data_raw == "0000-00-00 00:00:00":
-            continue
-        data_mov = str(data_raw).strip()[:10]
-        if data_mov and data_mov <= data_limite:
+        # Se a data for 0000-00-00, consideramos como movimento antigo (inclui no saldo)
+        if not data_raw or data_raw == "0000-00-00 00:00:00" or data_raw.startswith("0000-00-00"):
+            data_mov = "0000-00-00"
+        else:
+            data_mov = str(data_raw).strip()[:10]
+        # Se a data eh valida e anterior ou igual a data_limite, soma
+        if data_mov == "0000-00-00" or data_mov <= data_limite:
             try:
                 valor = float(m.get("valor_estoque", 0) or 0)
             except:
                 valor = 0.0
             tipo = m.get("tipo_estoque", "")
-            if tipo == "Entrada":
+            if tipo and tipo.lower() == "entrada":
                 saldo += valor
-            elif tipo == "Saida":
+            elif tipo and tipo.lower() == "saida":
                 saldo -= valor
     return round(saldo, 2)
+
+
 
 def buscar_compras_periodo(empresa, data_inicio, data_fim):
     headers = make_headers(empresa)
