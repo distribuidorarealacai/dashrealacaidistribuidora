@@ -167,7 +167,7 @@ def gerar_dashboard_html(pedidos, entregas):
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
 .hdr{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:18px 32px;display:flex;align-items:center;justify-content:space-between}
 .hdr-logo{display:flex;align-items:center;gap:16px}
-.hdr-logo-c{width:52px;height:52px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#2563eb;flex-shrink:0;border:3px solid rgba(255,255,255,.3)}
+.hdr-logo-c{width:52px;height:52px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:900;color:#2563eb;flex-shrink:0;border:3px solid rgba(255,255,255,.3)}
 .hdr h1{font-size:21px;font-weight:700}
 .hdr .sub{font-size:13px;opacity:.85;margin-top:2px}
 .hdr .upd{font-size:12px;opacity:.7;text-align:right}
@@ -442,7 +442,20 @@ def forcar_atualizacao():
 
 import base64
 
-
+# Carregar logo como base64 na inicializacao
+_logo_base64 = ""
+try:
+    for caminho in [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
+        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
+        'Logo_Real_Distribuidora.png',
+    ]:
+        if os.path.exists(caminho):
+            with open(caminho, 'rb') as f:
+                _logo_base64 = base64.b64encode(f.read()).decode('utf-8')
+            break
+except:
+    pass
 
 @app.route('/logo')
 def logo():
