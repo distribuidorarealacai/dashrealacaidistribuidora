@@ -236,7 +236,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Real Açaí Distribuidora" style="height:52px;border-radius:8px;object-fit:contain;"><div><h1>Real Açaí Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
+<div class="hdr"><div class="hdr-logo"><img src="data:image/png;base64,__LOGO_B64__" alt="Real Açaí Distribuidora"><div><h1>Real Açaí Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
 <div class="tabs">
 <button class="tab act" onclick="sw('comercial',this)">📊 Comercial</button>
 <button class="tab" onclick="sw('logistica',this)">🚚 Logística</button>
@@ -276,8 +276,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="footer-section">Os dados deste sistema são sincronizados automaticamente através do sistema de gestão empresarial <strong>VHSYS</strong>, utilizado pela Real Açaí Distribuidora.</div>
 <div class="footer-section">Sistema desenvolvido exclusivamente para: <strong>REAL AÇAÍ DISTRIBUIDORA</strong></div>
 <hr class="footer-divider">
-<div class="footer-copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas — Desenvolvedor Autônomo • v1.0.0 • Última atualização: 13/08/2026</div>
 </div>
+<div class="footer-copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados<br>Desenvolvido por Gabriel de Freitas — Desenvolvedor Autônomo • v1.0.0 • Última atualização: 13/08/2026</div>
+
 </div>
 <script>
 const TP=__DJ__,TE=__EJ__,M=__MJ__,MC=__MC__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
@@ -437,14 +438,29 @@ def forcar_atualizacao():
     threading.Thread(target=buscar_dados_background, daemon=True).start()
     return "<script>window.location.href='/';</script>"
 
+import base64
+
+# Carregar logo como base64 na inicializacao
+_logo_base64 = ""
+try:
+    for caminho in [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
+        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
+        'Logo_Real_Distribuidora.png',
+    ]:
+        if os.path.exists(caminho):
+            with open(caminho, 'rb') as f:
+                _logo_base64 = base64.b64encode(f.read()).decode('utf-8')
+            break
+except:
+    pass
+
 @app.route('/logo')
 def logo():
-    from flask import send_file
-    import os
-    caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png')
-    if os.path.exists(caminho):
-        return send_file(caminho, mimetype='image/png')
+    if _logo_base64:
+        return _logo_base64, 200, {'Content-Type': 'image/png', 'Cache-Control': 'max-age=3600'}
     return '', 404
+
 
 @app.route('/cmv')
 def cmv_endpoint():
