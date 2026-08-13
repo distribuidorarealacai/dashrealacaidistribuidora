@@ -2,7 +2,7 @@
 """
 dash_flask_ofc.py  (v3 — CMV + metas editaveis + meta consolidada fix + parallel fetch)
 """
-import os, sys, json, csv, io, re, time, threading
+import os, sys, json, csv, io, re, time, threading, http.client
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from calendar import monthrange
@@ -225,21 +225,25 @@ def processar_pedidos(pedidos, empresa):
 
 # ── CMV (Custo de Mercadorias Vendidas)
 def buscar_movimentos_estoque(empresa):
+    """Busca todos os movimentos de estoque de uma empresa usando http.client (preserva //)."""
     headers = make_headers(empresa)
+    # Converter headers para formato dict simples (http.client exige str)
+    http_headers = {k: str(v) for k, v in headers.items()}
     movimentos = []
     offset = 0
     limit = 250
     while True:
-        params = {"limit": limit, "offset": offset}
+        path = f"/v2/produtos//estoque?limit={limit}&offset={offset}"
         try:
-            resp = requests.get(f"{BASE_URL}/produtos//estoque", headers=headers, params=params, timeout=30)
+            conn = http.client.HTTPSConnection("api.vhsys.com", timeout=30)
+            conn.request("GET", path, "", http_headers)
+            res = conn.getresponse()
+            data_raw = res.read().decode("utf-8")
+            conn.close()
+            payload = json.loads(data_raw)
         except:
             break
-        if resp.status_code != 200:
-            break
-        try:
-            payload = resp.json()
-        except:
+        if payload.get("code") != 200:
             break
         lote = payload.get("data", [])
         if not lote or isinstance(lote, dict):
