@@ -159,7 +159,7 @@ def gerar_dashboard_html(pedidos, entregas):
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real Acái Distribuidora - Dashboard</title>
+<title>Real Açaí Distribuidora - Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#f0f2f5;--card:#fff;--pri:#2563eb;--pl:#dbeafe;--grn:#16a34a;--gl:#dcfce7;--amb:#f59e0b;--al:#fef3c7;--red:#dc2626;--rl:#fee2e2;--txt:#1e293b;--mut:#64748b;--brd:#e2e8f0;--sh:0 1px 3px rgba(0,0,0,.1);--shl:0 4px 6px rgba(0,0,0,.07);--r:12px}
@@ -296,13 +296,14 @@ function af(){
   const ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;if(!ini||!fim)return;
   let ped=TP.filter(p=>p.data>=ini&&p.data<=fim);if(ef!=='todos')ped=ped.filter(p=>p.empresa===ef);
   const mr=fim.substring(0,7);document.getElementById('mesL').textContent=fm2(mr);
-  const ma=new Date().toISOString().substring(0,7);
-  const fma=TP.filter(p=>p.data.substring(0,7)===ma&&(ef==='todos'||p.empresa===ef)).reduce((s,p)=>s+p.valor,0);
+  const hoje=new Date();
+  const mesAtualStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');
+  const fatMesAtual=TP.filter(p=>p.data.substring(0,7)===mesAtualStr&&(ef==='todos'||p.empresa===ef)).reduce((s,p)=>s+p.valor,0);
   if(ped.length===0){msd()}else{
     const pv={};ped.forEach(p=>{const v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});
     let vs=Object.values(pv).sort((a,b)=>b.f-a.f);vs.forEach(v=>v.f=Math.round(v.f*100)/100);
     const ft=vs.reduce((s,v)=>s+v.f,0),qv=vs.reduce((s,v)=>s+v.q,0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);
-    rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv);
+    rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fatMesAtual,mesAtualStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv);
   }
   let ent=TE.filter(e=>e.data>=ini&&e.data<=fim);re(ent,ini,fim);
 }
@@ -316,14 +317,24 @@ function rc(ped,ft,qv){
   let h='';Object.entries(pe).sort((a,b)=>b[1].f-a[1].f).forEach(([n,d],i)=>{const p=ft>0?(d.f/ft*100):0;const t=d.q>0?d.f/d.q:0;const c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+n+'</td><td class="vc">'+fm(d.f)+'</td><td>'+d.q+'</td><td>'+fm(t)+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});
   document.getElementById('tbEmp').innerHTML=h;
 }
-function rm(vs,mr,fma){
+function rm(vs,mr,fatMesAtual,mesAtualStr){
   let h='';
   if(ef==='todos'){
-    const tm2=MC,tf=fma,pc=tm2>0?(tf/tm2*100):0,pb=Math.min(pc,100),fl=Math.max(tm2-tf,0);
-    let sc,st,cb;if(pc>=100){sc='sb';st='Meta atingida';cb='#16a34a'}else if(pc>=70){sc='sp';st='Quase lá';cb='#f59e0b'}else{sc='sl';st='Em progresso';cb='#dc2626'}
-    const tv=TP.filter(p=>p.data.substring(0,7)===mr.substring(0,7)).reduce((s,p)=>s+1,0);
-    let tf2='';if(tm2>0&&pc<100)tf2='Faltam <strong style="color:#fff">'+fm(fl)+'</strong> para a meta';else if(tm2>0&&pc>=100)tf2='Superou em <strong style="color:#fff">'+fm(tf-tm2)+'</strong>';
-    h+='<div class="mc con"><div class="mh"><div class="ma" style="background:#fff;color:#2563eb">C</div><div><div class="mn">META CONSOLIDADA ('+fm2(mr)+')</div><div class="ms">'+tv+' venda(s) - Ticket: '+fm(tv>0?tf/tv:0)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pc.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv">'+fm(tf)+'</span><span style="color:rgba(255,255,255,.7);font-size:13px"> / '+fm(tm2)+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf2?'<div class="mf">'+tf2+'</div>':'')+'</div>';
+    const tm2=MC;
+    const tf=fatMesAtual;
+    const pc=tm2>0?(tf/tm2*100):0;
+    const pb=Math.min(pc,100);
+    const fl=Math.max(tm2-tf,0);
+    let sc,st,cb;
+    if(pc>=100){sc='sb';st='Meta atingida';cb='#16a34a'}
+    else if(pc>=70){sc='sp';st='Quase lá';cb='#f59e0b'}
+    else{sc='sl';st='Em progresso';cb='#dc2626'}
+    const tv=TP.filter(p=>p.data.substring(0,7)===mesAtualStr).reduce((s,p)=>s+1,0);
+    const nomeMes=fm2(mesAtualStr);
+    let tf2='';
+    if(tm2>0&&pc<100){tf2='Faltam <strong style="color:#fff">'+fm(fl)+'</strong> para a meta de '+nomeMes}
+    else if(tm2>0&&pc>=100){tf2='Superou a meta de '+nomeMes+' em <strong style="color:#fff">'+fm(tf-tm2)+'</strong>'}
+    h+='<div class="mc con"><div class="mh"><div class="ma" style="background:#fff;color:#2563eb">C</div><div><div class="mn">META CONSOLIDADA - '+nomeMes+'</div><div class="ms">'+tv+' venda(s) em '+nomeMes+' - Ticket: '+fm(tv>0?tf/tv:0)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pc.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv">'+fm(tf)+'</span><span style="color:rgba(255,255,255,.7);font-size:13px"> / '+fm(tm2)+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf2?'<div class="mf">'+tf2+'</div>':'')+'</div>';
   }
   const nw=new Set(vs.map(v=>v.n.toLowerCase()));const td=[...vs];
   Object.keys(M).forEach(n=>{if(!nw.has(n.toLowerCase())){const ee=(n==='GP DISTRIBUIDORA')?'GP DISTRIBUIDORA':'REAL MAIS';if(ef==='todos'||ef===ee)td.push({n:n,f:0,q:0,e:ee})}});
