@@ -266,17 +266,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="cig"><div class="fg"><label>Est.Ini RM</label><input type="number" id="cmvEi" step="0.01" placeholder="Ex:1029623.51" style="width:160px"></div><div class="fg"><label>Est.Ini GP</label><input type="number" id="cmvEig" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin RM</label><input type="number" id="cmvEf" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin GP</label><input type="number" id="cmvEfg" step="0.01" placeholder="0" style="width:160px"></div></div>
 <button class="ba" onclick="calcCMV()">Calcular CMV</button>
 </div>
+</div>
 <div id="cmvR" style="margin-bottom:24px"></div>
 <div class="tc2"><div class="ct">Faturamento por Empresa</div><table><thead><tr><th>Empresa</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>%</th></tr></thead><tbody id="tbEmp"></tbody></table></div>
 <div class="footer">
-<div class="footer-name">Gabriel Freitas</div>
+<div class="footer-name">Gabriel de Freitas</div>
 <div class="footer-tags">Desenvolvedor Autônomo • Desenvolvimento • Sistemas • Automação • Inteligência de Dados</div>
 <hr class="footer-divider">
 <div class="footer-section">Os dados deste sistema são sincronizados automaticamente através do sistema de gestão empresarial <strong>VHSYS</strong>, utilizado pela Real Açaí Distribuidora.</div>
 <div class="footer-section">Sistema desenvolvido exclusivamente para: <strong>REAL AÇAÍ DISTRIBUIDORA</strong></div>
 <hr class="footer-divider">
 <div class="footer-copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas — Desenvolvedor Autônomo • v1.0.0 • Última atualização: 13/08/2026</div>
-</div>
 </div>
 </div>
 <script>
