@@ -266,7 +266,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <script>
 const TP=__DJ__,TE=__EJ__,M=__MJ__,MC=__MC__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 let cV=null,cD=null,cK=null,cE=null,cED=null,ef='todos';
-function sw(t,b){document.querySelectorAll('.tc').forEach(x=>x.classList.remove('act'));document.querySelectorAll('.tab').forEach(x=>x.classList.remove('act'));document.getElementById('tc-'+t).classList.add('act');b.classList.add('act')}
+function sw(t,b){
+  document.querySelectorAll('.tc').forEach(x=>x.classList.remove('act'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('act'));
+  document.getElementById('tc-'+t).classList.add('act');
+  b.classList.add('act');
+  setTimeout(function(){ af(); }, 50);
+}
 function nn(n){if(!n)return'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim()}
 function bm(n){const nl=n.toLowerCase();const k=Object.keys(M).find(x=>x.toLowerCase()===nl);return k?M[k]:0}
 function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
