@@ -226,6 +226,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .mer{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--brd)}.mer:last-child{border-bottom:none}
 .mel{flex:1;font-weight:600;font-size:14px}
 .cig{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.footer{background:#1e293b;color:#94a3b8;padding:32px 24px;text-align:center;font-size:13px;line-height:1.8}
+.footer strong{color:#e2e8f0}
+.footer-divider{border:none;border-top:1px solid #334155;margin:16px auto;max-width:600px}
+.footer-section{margin:8px 0}
+.footer-name{font-size:15px;font-weight:700;color:#fff;letter-spacing:1px}
+.footer-tags{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin:4px 0}
+.footer-copy{font-size:12px;color:#64748b;margin-top:12px}
 </style>
 </head>
 <body>
@@ -261,6 +268,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 <div id="cmvR" style="margin-bottom:24px"></div>
 <div class="tc2"><div class="ct">Faturamento por Empresa</div><table><thead><tr><th>Empresa</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>%</th></tr></thead><tbody id="tbEmp"></tbody></table></div>
+<div class="footer">
+<div class="footer-name">Gabriel Freitas</div>
+<div class="footer-tags">Desenvolvedor Autônomo • Desenvolvimento • Sistemas • Automação • Inteligência de Dados</div>
+<hr class="footer-divider">
+<div class="footer-section">Os dados deste sistema são sincronizados automaticamente através do sistema de gestão empresarial <strong>VHSYS</strong>, utilizado pela Real Açaí Distribuidora.</div>
+<div class="footer-section">Sistema desenvolvido exclusivamente para: <strong>REAL AÇAÍ DISTRIBUIDORA</strong></div>
+<hr class="footer-divider">
+<div class="footer-copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas — Desenvolvedor Autônomo • v1.0.0 • Última atualização: 13/08/2026</div>
+</div>
 </div>
 </div>
 <script>
