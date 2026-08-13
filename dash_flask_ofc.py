@@ -1,9 +1,5 @@
-dash_flask_ofc.py - código completo v4
 
-#!/usr/bin/env python3
-"""
-dash_flask_ofc.py  (v4 — CMV manual + compras auto + metas editaveis + meta consolidada fix + parallel fetch)
-"""
+
 import os, sys, json, csv, io, re, time, threading, http.client
 from datetime import datetime, date, timedelta
 from pathlib import Path
