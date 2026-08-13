@@ -442,20 +442,7 @@ def forcar_atualizacao():
 
 import base64
 
-# Carregar logo como base64 na inicializacao
-_logo_base64 = ""
-try:
-    for caminho in [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
-        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
-        'Logo_Real_Distribuidora.png',
-    ]:
-        if os.path.exists(caminho):
-            with open(caminho, 'rb') as f:
-                _logo_base64 = base64.b64encode(f.read()).decode('utf-8')
-            break
-except:
-    pass
+
 
 @app.route('/logo')
 def logo():
