@@ -224,53 +224,88 @@ def processar_pedidos(pedidos, empresa):
     return processados
 
 # ── CMV (Custo de Mercadorias Vendidas)
-def buscar_movimentos_estoque(empresa):
-    """Busca todos os movimentos de estoque usando http.client (preserva //)."""
-    http_headers = {
-        'access-token': empresa["access_token"],
-        'secret-access-token': empresa["secret_token"],
-        'Cache-Control': 'no-cache',
-        'User-Agent': 'MinhaAplicacao/1.0',
-        'Content-Type': 'application/json'
-    }
+def buscar_todos_produtos(empresa):
+    """Lista todos os produtos cadastrados na empresa."""
+    headers = make_headers(empresa)
+    produtos = []
+    offset = 0
+    limit = 250
+    while True:
+        params = {"limit": limit, "offset": offset}
+        try:
+            resp = requests.get(f"{BASE_URL}/produtos/", headers=headers, params=params, timeout=30)
+        except:
+            break
+        if resp.status_code != 200:
+            break
+        try:
+            payload = resp.json()
+        except:
+            break
+        lote = payload.get("data", [])
+        if not lote or isinstance(lote, dict):
+            break
+        produtos.extend(lote)
+        if len(lote) < limit:
+            break
+        offset += limit
+    print(f"[CMV] Produtos encontrados ({empresa['nome']}): {len(produtos)}")
+    return produtos
+
+def buscar_estoque_produto(empresa, id_produto):
+    """Busca movimentos de estoque de um produto específico."""
+    headers = make_headers(empresa)
     movimentos = []
     offset = 0
     limit = 250
     while True:
-        # CORRECAO: incluir /v2 no inicio do path
-        path = f"/v2/produtos//estoque?limit={limit}&offset={offset}"
+        params = {"limit": limit, "offset": offset}
         try:
-            conn = http.client.HTTPSConnection("api.vhsys.com", timeout=30)
-            conn.request("GET", path, "", http_headers)
-            res = conn.getresponse()
-            data_raw = res.read().decode("utf-8")
-            conn.close()
-            payload = json.loads(data_raw)
-        except Exception as e:
-            print(f"Erro ao buscar estoque: {e}")
+            resp = requests.get(f"{BASE_URL}/produtos/{id_produto}/estoque", headers=headers, params=params, timeout=30)
+        except:
             break
-
-        if payload.get("code") != 200:
-            print(f"API estoque erro code={payload.get('code')}: {payload.get('data', '')[:200]}")
+        if resp.status_code != 200:
             break
-
+        try:
+            payload = resp.json()
+        except:
+            break
         lote = payload.get("data", [])
         if not lote or isinstance(lote, dict):
             break
-
         movimentos.extend(lote)
-
-        # Verificar paginacao
-        paging = payload.get("paging", {})
-        total = paging.get("total", 0)
-        if total > 0 and len(movimentos) >= total:
-            break
         if len(lote) < limit:
             break
         offset += limit
-
-    print(f"Estoque {empresa['nome']}: {len(movimentos)} movimentos encontrados")
     return movimentos
+
+def buscar_movimentos_estoque(empresa):
+    """Lista todos os produtos, depois busca estoque de cada um em paralelo."""
+    produtos = buscar_todos_produtos(empresa)
+    if not produtos:
+        print(f"[CMV] Nenhum produto encontrado para {empresa['nome']}")
+        return []
+
+    todos_movimentos = []
+
+    def fetch_one(prod):
+        # Tentar varios campos possiveis para o ID do produto
+        pid = str(prod.get("id_produto") or prod.get("id_prod") or prod.get("id") or "")
+        if not pid or pid == "0":
+            return []
+        return buscar_estoque_produto(empresa, pid)
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(fetch_one, p) for p in produtos]
+        for f in as_completed(futures):
+            try:
+                movs = f.result()
+                todos_movimentos.extend(movs)
+            except:
+                pass
+
+    print(f"[CMV] Estoque {empresa['nome']}: {len(todos_movimentos)} movimentos de {len(produtos)} produtos")
+    return todos_movimentos
 
 def calcular_saldo_estoque(movimentos, data_limite):
     """Soma Entradas e subtrai Saidas ate a data limite."""
