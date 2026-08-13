@@ -229,7 +229,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><div class="hdr-logo-c">RA</div><div><h1>Real Acái Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Real Açaí Distribuidora" style="height:52px;border-radius:8px;object-fit:contain;"><div><h1>Real Açaí Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
 <div class="tabs">
 <button class="tab act" onclick="sw('comercial',this)">📊 Comercial</button>
 <button class="tab" onclick="sw('logistica',this)">🚚 Logística</button>
@@ -420,6 +420,15 @@ def forcar_atualizacao():
     with _cache_lock: _cache["timestamp"] = 0; _cache["html"] = ""; _cache["buscando"] = False
     threading.Thread(target=buscar_dados_background, daemon=True).start()
     return "<script>window.location.href='/';</script>"
+
+@app.route('/logo')
+def logo():
+    from flask import send_file
+    import os
+    caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png')
+    if os.path.exists(caminho):
+        return send_file(caminho, mimetype='image/png')
+    return '', 404
 
 @app.route('/cmv')
 def cmv_endpoint():
