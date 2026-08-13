@@ -267,9 +267,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 const TP=__DJ__,TE=__EJ__,M=__MJ__,MC=__MC__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 let cV=null,cD=null,cK=null,cE=null,cED=null,ef='todos';
 function sw(t,b){
+  var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};
   document.querySelectorAll('.tc').forEach(x=>x.classList.remove('act'));
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('act'));
-  document.getElementById('tc-'+t).classList.add('act');
+  document.getElementById(map[t]).classList.add('act');
   b.classList.add('act');
   setTimeout(function(){
     try{
