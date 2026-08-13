@@ -236,7 +236,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="data:image/png;base64,__LOGO_B64__" alt="Real Açaí Distribuidora"><div><h1>Real Açaí Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:52px;border-radius:8px;object-fit:contain;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'">
+<div id="logoFallback" style="display:none;width:52px;height:52px;border-radius:50%;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex-shrink:0;">RA</div>
+<div><h1>Real Açaí Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
 <div class="tabs">
 <button class="tab act" onclick="sw('comercial',this)">📊 Comercial</button>
 <button class="tab" onclick="sw('logistica',this)">🚚 Logística</button>
@@ -457,9 +459,25 @@ except:
 
 @app.route('/logo')
 def logo():
-    if _logo_base64:
-        return _logo_base64, 200, {'Content-Type': 'image/png', 'Cache-Control': 'max-age=3600'}
-    return '', 404
+    import os, glob
+    from flask import send_file, Response
+    # Buscar o arquivo em varios caminhos possiveis
+    caminhos = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
+        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
+        'Logo_Real_Distribuidora.png',
+        '/app/Logo_Real_Distribuidora.png',
+    ]
+    for c in caminhos:
+        if os.path.isfile(c):
+            return send_file(c, mimetype='image/png')
+    # Busca recursiva como ultimo recurso
+    matches = glob.glob('**/*ogo*.png', recursive=True)
+    if matches:
+        return send_file(matches[0], mimetype='image/png')
+    # Fallback: retornar pixel transparente
+    pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
+    return Response(pixel, mimetype='image/png')
 
 
 @app.route('/cmv')
