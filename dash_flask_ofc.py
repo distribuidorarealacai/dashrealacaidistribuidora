@@ -236,8 +236,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:52px;border-radius:8px;object-fit:contain;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'">
-<div id="logoFallback" style="display:none;width:52px;height:52px;border-radius:50%;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex-shrink:0;">RA</div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'">
+<div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div>
 <div><h1>Real Açaí Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
 <div class="tabs">
 <button class="tab act" onclick="sw('comercial',this)">📊 Comercial</button>
