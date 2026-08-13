@@ -237,7 +237,8 @@ def buscar_movimentos_estoque(empresa):
     offset = 0
     limit = 250
     while True:
-        path = f"/produtos//estoque?limit={limit}&offset={offset}&data_cad_estoque=null"
+        # CORRECAO: incluir /v2 no inicio do path
+        path = f"/v2/produtos//estoque?limit={limit}&offset={offset}"
         try:
             conn = http.client.HTTPSConnection("api.vhsys.com", timeout=30)
             conn.request("GET", path, "", http_headers)
@@ -248,38 +249,57 @@ def buscar_movimentos_estoque(empresa):
         except Exception as e:
             print(f"Erro ao buscar estoque: {e}")
             break
+
         if payload.get("code") != 200:
+            print(f"API estoque erro code={payload.get('code')}: {payload.get('data', '')[:200]}")
             break
+
         lote = payload.get("data", [])
         if not lote or isinstance(lote, dict):
             break
+
         movimentos.extend(lote)
+
+        # Verificar paginacao
+        paging = payload.get("paging", {})
+        total = paging.get("total", 0)
+        if total > 0 and len(movimentos) >= total:
+            break
         if len(lote) < limit:
             break
         offset += limit
+
+    print(f"Estoque {empresa['nome']}: {len(movimentos)} movimentos encontrados")
     return movimentos
 
 def calcular_saldo_estoque(movimentos, data_limite):
     """Soma Entradas e subtrai Saidas ate a data limite."""
     saldo = 0.0
+    entradas = 0
+    saidas = 0
     for m in movimentos:
         data_raw = m.get("data_cad_estoque", "")
-        # Se a data for 0000-00-00, consideramos como movimento antigo (inclui no saldo)
+        # Se a data for 0000-00-00 ou vazia, incluir (movimento antigo)
         if not data_raw or data_raw == "0000-00-00 00:00:00" or data_raw.startswith("0000-00-00"):
             data_mov = "0000-00-00"
         else:
             data_mov = str(data_raw).strip()[:10]
-        # Se a data eh valida e anterior ou igual a data_limite, soma
+
+        # Se a data eh valida (0000-00-00 = antigo) ou anterior/igual a data_limite
         if data_mov == "0000-00-00" or data_mov <= data_limite:
             try:
                 valor = float(m.get("valor_estoque", 0) or 0)
             except:
                 valor = 0.0
-            tipo = m.get("tipo_estoque", "")
-            if tipo and tipo.lower() == "entrada":
+            tipo = str(m.get("tipo_estoque", "")).lower().strip()
+            if tipo == "entrada":
                 saldo += valor
-            elif tipo and tipo.lower() == "saida":
+                entradas += 1
+            elif tipo == "saida":
                 saldo -= valor
+                saidas += 1
+
+    print(f"Saldo ate {data_limite}: R$ {saldo:.2f} ({entradas} entradas, {saidas} saidas)")
     return round(saldo, 2)
 
 
