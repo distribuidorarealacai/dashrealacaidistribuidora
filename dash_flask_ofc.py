@@ -1,3 +1,225 @@
+#!/usr/bin/env python3
+"""
+dash_flask_ofc.py  (v6 - abas + logo + rodape + carregamento gradual)
+"""
+import os, sys, json, csv, io, re, time, threading, glob
+from datetime import datetime, date
+from calendar import monthrange
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import requests
+from flask import Flask, request, jsonify, send_file, Response
+
+app = Flask(__name__)
+
+EMPRESAS = [
+    {"nome": "REAL MAIS", "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT", "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
+    {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
+]
+BASE_URL = "https://api.vhsys.com/v2"
+STATUS_EXCLUIDOS = {"Cancelado"}
+SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
+
+_metas_lock = threading.Lock()
+_metas = {"Simone Moura": 215000.00, "Isa": 241500.00, "Ana Ruth": 65000.00, "GP DISTRIBUIDORA": 100000.00}
+_metas_consolidada = 1005277.76
+CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
+CACHE_TEMPO_SEGUNDOS = 1800
+_cache_lock = threading.Lock()
+_cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False, "carregando_completo": False}
+_cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
+_cmv_lock = threading.Lock()
+
+def make_headers(empresa):
+    return {"access-token": empresa["access_token"], "secret-access-token": empresa["secret_token"], "Cache-Control": "no-cache", "User-Agent": "MinhaAplicacao/1.0", "Content-Type": "application/json"}
+
+def normalizar_data(v):
+    if not v: return ""
+    s = str(v).strip()
+    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', s)
+    if m: return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    m = re.match(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})', s)
+    if m: return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    m = re.match(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{2})', s)
+    if m: return f"20{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    return ""
+
+def normalizar_nome(n):
+    if not n: return "Sem vendedor"
+    s = str(n).replace('\xa0',' ').replace('\t',' ').replace('\n',' ').replace('\r',' ')
+    s = ' '.join(s.split())
+    return s if s else "Sem vendedor"
+
+def ler_dados_entregas():
+    urls = [f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0", f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv", f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv"]
+    content = None
+    for url in urls:
+        try:
+            resp = requests.get(url, timeout=30, allow_redirects=True)
+            t = resp.text[:500].strip()
+            if '<html' in t.lower() or '<!doctype' in t.lower(): continue
+            if resp.status_code == 200 and len(resp.content) > 50:
+                content = resp.content.decode('utf-8'); break
+        except: continue
+    if content is None: return []
+    entregas = []
+    try:
+        reader = csv.reader(io.StringIO(content)); data_atual = ""
+        for row in reader:
+            if not row or all(c.strip()=="" for c in row): continue
+            pc = row[0].strip() if row[0] else ""
+            if "PLANILHA DE ENTREGAS" in pc.upper():
+                mt = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', pc)
+                data_atual = f"{mt.group(3)}-{mt.group(2).zfill(2)}-{mt.group(1).zfill(2)}" if mt else ""
+                continue
+            if pc.upper() == "CLIENTES": continue
+            if data_atual and len(row) >= 3:
+                ent = row[2].strip().upper() if row[2] else ""
+                if ent in ("RETIRADA","RETRADA","RETITADA"): ent = "RETIRADA"
+                if ent: entregas.append({"data": data_atual, "entregador": ent, "cliente": row[0].strip() if row[0] else "", "nota": row[1].strip() if row[1] else ""})
+    except: return []
+    return entregas
+
+def listar_pedidos_periodo(di, df, empresa, headers):
+    ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
+    todos = []; offset = 0; limit = 500; pag = 1
+    while pag <= 200:
+        params = {"limit": limit, "offset": offset, "order": ofield, "sort": "Desc"}
+        try: resp = requests.get(f"{BASE_URL}{ep}", headers=headers, params=params, timeout=30)
+        except: break
+        if resp.status_code != 200: break
+        try: payload = resp.json()
+        except: break
+        lote = payload.get("data", [])
+        if isinstance(lote, dict): lote = [lote]
+        if not lote or not isinstance(lote, list): break
+        todos.extend(lote)
+        antes = 0
+        for p in lote:
+            if not isinstance(p, dict): continue
+            dp = normalizar_data(p.get(dfield,""))
+            if dp and dp != "0000-00-00" and dp < di: antes += 1
+        if antes > 0: break
+        offset += limit; pag += 1
+    filtrados = []
+    for p in todos:
+        if not isinstance(p, dict): continue
+        dp = normalizar_data(p.get(dfield,""))
+        if dp and dp != "0000-00-00" and di <= dp <= df:
+            p[dfield] = dp
+            filtrados.append(p)
+    return filtrados
+
+def processar_pedidos(pedidos, empresa):
+    en = empresa["nome"]; dfield = empresa["data_field"]; procs = []
+    for p in pedidos:
+        if not isinstance(p, dict): continue
+        st = p.get("status_pedido", "")
+        if st in STATUS_EXCLUIDOS: continue
+        try: vl = float(p.get("valor_total_nota","0") or "0")
+        except: vl = 0.0
+        vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome(p.get("vendedor_pedido",""))
+        procs.append({"id": str(p.get("id_ped", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
+    return procs
+
+def buscar_compras_periodo(empresa, di, df):
+    headers = make_headers(empresa); compras = []; offset = 0; limit = 250; pag = 0
+    while pag < 50:
+        params = {"limit": limit, "offset": offset, "order": "data_pedido", "sort": "Desc"}
+        try: resp = requests.get(f"{BASE_URL}/entradas-mercadoria/", headers=headers, params=params, timeout=30)
+        except: break
+        if resp.status_code != 200: break
+        try: payload = resp.json()
+        except: break
+        lote = payload.get("data", [])
+        if not lote or isinstance(lote, dict): break
+        ta = False
+        for c in lote:
+            if not isinstance(c, dict): continue
+            dc = normalizar_data(c.get("data_pedido","")); st = c.get("status_pedido","")
+            if dc and di <= dc <= df and st == "Atendido": compras.append(c)
+            if dc and dc < di: ta = True
+        if ta: break
+        offset += limit; pag += 1
+        if len(lote) < limit: break
+    return compras
+
+def calcular_cmv_background(di, df, eirm, eigp, efrm, efgp):
+    with _cmv_lock:
+        if _cmv_cache["calculando"]: return
+        _cmv_cache["calculando"] = True
+        _cmv_cache["params"] = f"{di}_{df}_{eirm}_{eigp}_{efrm}_{efgp}"
+    try:
+        crm = buscar_compras_periodo(EMPRESAS[0], di, df)
+        tcrm = sum(float(c.get("valor_total_nota",0) or 0) for c in crm)
+        eit = eirm + eigp; eft = efrm + efgp; cmv = eit + tcrm - eft
+        r = {"status":"concluido","data_inicial":di,"data_final":df,"estoque_inicial_rm":eirm,"estoque_inicial_gp":eigp,"estoque_inicial_total":round(eit,2),"compras_rm":round(tcrm,2),"compras_gp":0.0,"compras_total":round(tcrm,2),"estoque_final_rm":efrm,"estoque_final_gp":efgp,"estoque_final_total":round(eft,2),"cmv":round(cmv,2)}
+        with _cmv_lock:
+            _cmv_cache["timestamp"] = time.time()
+            _cmv_cache["data"] = r
+            _cmv_cache["calculando"] = False
+    except Exception as e:
+        with _cmv_lock:
+            _cmv_cache["calculando"] = False
+            _cmv_cache["data"] = {"status":"erro","erro":str(e)}
+
+def buscar_dados_de_mes(ano, mes, empresa):
+    df = monthrange(ano, mes)[1]
+    di = f"{ano}-{mes:02d}-01"
+    dff = f"{ano}-{mes:02d}-{df:02d}"
+    h = make_headers(empresa)
+    return processar_pedidos(listar_pedidos_periodo(di, dff, empresa, h), empresa)
+
+def buscar_dados_background(meses_inicio=None, meses_fim=None):
+    with _cache_lock:
+        if _cache["buscando"]: return
+        _cache["buscando"] = True
+    try:
+        hoje = date.today()
+        ano = hoje.year
+        ma = hoje.month
+        if meses_inicio is None:
+            meses_inicio = max(1, ma - 2)
+        if meses_fim is None:
+            meses_fim = ma
+        tarefas = [(ano, mes, emp) for mes in range(meses_inicio, meses_fim+1) for emp in EMPRESAS]
+        todos = []
+        with ThreadPoolExecutor(max_workers=16) as ex:
+            fs = {ex.submit(buscar_dados_de_mes, a, m, e): (m, e["nome"]) for (a, m, e) in tarefas}
+            for f in as_completed(fs):
+                try: todos.extend(f.result())
+                except: pass
+        ent = ler_dados_entregas()
+        html = gerar_dashboard_html(todos, ent)
+        with _cache_lock:
+            _cache["timestamp"] = time.time()
+            _cache["html"] = html
+            _cache["erro"] = ""
+            _cache["buscando"] = False
+        if meses_inicio > 1 and not _cache.get("carregando_completo"):
+            with _cache_lock:
+                _cache["carregando_completo"] = True
+            def carregar_resto():
+                try:
+                    tarefas2 = [(ano, mes, emp) for mes in range(1, meses_inicio) for emp in EMPRESAS]
+                    with ThreadPoolExecutor(max_workers=16) as ex2:
+                        fs2 = {ex2.submit(buscar_dados_de_mes, a, m, e): (m, e["nome"]) for (a, m, e) in tarefas2}
+                        for f2 in as_completed(fs2):
+                            try: todos.extend(f2.result())
+                            except: pass
+                    ent2 = ler_dados_entregas()
+                    html2 = gerar_dashboard_html(todos, ent2)
+                    with _cache_lock:
+                        _cache["timestamp"] = time.time()
+                        _cache["html"] = html2
+                        _cache["carregando_completo"] = False
+                except:
+                    with _cache_lock:
+                        _cache["carregando_completo"] = False
+            threading.Thread(target=carregar_resto, daemon=True).start()
+    except Exception as e:
+        with _cache_lock:
+            _cache["erro"] = str(e)
+            _cache["buscando"] = False
 def gerar_dashboard_html(pedidos, entregas):
     dj = json.dumps(pedidos, ensure_ascii=False)
     ej = json.dumps(entregas, ensure_ascii=False)
