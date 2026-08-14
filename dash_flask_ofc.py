@@ -28,21 +28,11 @@ _cache_lock = threading.Lock()
 _cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False}
 _cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
 _cmv_lock = threading.Lock()
-CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dash_cache.json')
+_cache_lock = threading.Lock()
+_cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False}
 
-def _read_cache():
-    try:
-        with open(CACHE_FILE, 'r') as f:
-            return json.load(f)
-    except:
-        return {"timestamp": 0, "html": "", "erro": "", "buscando": False}
 
-def _write_cache(data):
-    try:
-        with open(CACHE_FILE, 'w') as f:
-            json.dump(data, f)
-    except:
-        pass
+
 def make_headers(empresa):
     return {"access-token": empresa["access_token"], "secret-access-token": empresa["secret_token"], "Cache-Control": "no-cache", "User-Agent": "MinhaAplicacao/1.0", "Content-Type": "application/json"}
 
@@ -185,10 +175,9 @@ def buscar_dados_de_mes(ano, mes, empresa):
     return processar_pedidos(listar_pedidos_periodo(di, dff, empresa, h), empresa)
 
 def buscar_dados_background():
-    c = _read_cache()
-    if c.get("buscando") and (time.time() - c.get("timestamp", 0)) < 300:
-        return
-    _write_cache({"timestamp": time.time(), "html": "", "erro": "", "buscando": True})
+    with _cache_lock:
+        if _cache["buscando"]: return
+        _cache["buscando"] = True
     try:
         hoje = date.today()
         ano = hoje.year
@@ -210,12 +199,17 @@ def buscar_dados_background():
         print(f"[DEBUG] Entregas: {len(ent)}", flush=True)
         html = gerar_dashboard_html(todos, ent)
         print(f"[DEBUG] HTML gerado: {len(html)} chars", flush=True)
-        _write_cache({"timestamp": time.time(), "html": html, "erro": "", "buscando": False})
+        with _cache_lock:
+            _cache["timestamp"] = time.time()
+            _cache["html"] = html
+            _cache["erro"] = ""
+            _cache["buscando"] = False
         print("[DEBUG] Concluido com sucesso!", flush=True)
     except Exception as e:
         print(f"[DEBUG] ERRO FATAL: {e}", flush=True)
-        _write_cache({"timestamp": time.time(), "html": "", "erro": str(e), "buscando": False})
-
+        with _cache_lock:
+            _cache["erro"] = str(e)
+            _cache["buscando"] = False
 
 
 def gerar_dashboard_html(pedidos, entregas):
@@ -435,14 +429,19 @@ def dashboard():
 
 @app.route('/status')
 def status():
-    c = _read_cache()
-    return jsonify({"tem_html": bool(c.get("html")), "buscando": c.get("buscando", False), "erro": c.get("erro", ""), "timestamp": c.get("timestamp", 0)})
+    with _cache_lock:
+        return jsonify({"tem_html": bool(_cache["html"]), "buscando": _cache["buscando"], "erro": _cache["erro"], "timestamp": _cache["timestamp"]})
 
 @app.route('/atualizar')
 def forcar_atualizacao():
-    _write_cache({"timestamp": 0, "html": "", "erro": "", "buscando": False})
+    with _cache_lock:
+        _cache["timestamp"] = 0
+        _cache["html"] = ""
+        _cache["buscando"] = False
     threading.Thread(target=buscar_dados_background, daemon=True).start()
     return "<script>window.location.href='/';</script>"
+
+
 
 @app.route('/buscar_periodo')
 def buscar_periodo_endpoint():
@@ -502,8 +501,9 @@ def api_metas():
         for k, v in dados.items():
             if k != '_consolidada':
                 _metas[k] = float(v)
-    c = _read_cache()
-    _write_cache({"timestamp": 0, "html": "", "erro": "", "buscando": False})
+       with _cache_lock:
+        _cache["timestamp"] = 0
+        _cache["html"] = ""
     return jsonify({"status": "ok"})
 
 def init_background():
