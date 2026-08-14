@@ -391,7 +391,7 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
-LOADING_HTML = '''Carregando...body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}#erro{color:#dc2626;font-size:14px;margin-top:12px;display:none}#retry{display:none;margin-top:16px;padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}function check(){fetch('/status').then(function(r){return r.json()}).then(function(d){if(d.erro){document.getElementById('s').style.display='none';document.getElementById('h').textContent='Erro ao buscar dados';document.getElementById('p').textContent=d.erro;document.getElementById('erro').style.display='block';document.getElementById('retry').style.display='inline-block'}else if(d.tem_html){window.location.reload()}else{setTimeout(check,3000)}}).catch(function(){setTimeout(check,5000)})}check()Buscando dados...Coletando vendas do mes atual no VHSys.Tentar novamente(c) 2026 Real Acai Distribuidora - Desenvolvido por Gabriel Freitas - v1.0.0'''
+LOADING_HTML = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carregando...</title><style>body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}#erro{color:#dc2626;font-size:14px;margin-top:12px;display:none}#retry{display:none;margin-top:16px;padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}</style><script>function check(){fetch("/status").then(function(r){return r.json()}).then(function(d){if(d.erro){document.getElementById("s").style.display="none";document.getElementById("h").textContent="Erro ao buscar dados";document.getElementById("p").textContent=d.erro;document.getElementById("erro").style.display="block";document.getElementById("retry").style.display="inline-block"}else if(d.tem_html){window.location.reload()}else{setTimeout(check,3000)}}).catch(function(){setTimeout(check,5000)})}check()</script></head><body><div class="l"><div class="s" id="s"></div><h1 id="h">Buscando dados...</h1><p id="p">Coletando vendas do mes atual no VHSys.</p><div id="erro"></div><button id="retry" onclick="window.location.href=\'/atualizar\'">Tentar novamente</button></div><div style="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#94a3b8;padding:16px;text-align:center;font-size:12px">(c) 2026 Real Acai Distribuidora - Desenvolvido por Gabriel Freitas - v1.0.0</div></body></html>'
 
 @app.route('/logo')
 def logo():
@@ -416,11 +416,11 @@ def dashboard():
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
             return _cache["html"]
         if _cache["buscando"]:
-            return LOADING_HTML
+            return Response(LOADING_HTML, content_type='text/html')
         if _cache["erro"]:
             return f"Erro ao buscar dados:{_cache['erro']}Tentar novamente"
     threading.Thread(target=buscar_dados_background, daemon=True).start()
-    return LOADING_HTML
+            return Response(LOADING_HTML, content_type='text/html')
 
 @app.route('/status')
 def status():
