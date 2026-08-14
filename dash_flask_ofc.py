@@ -1,156 +1,10 @@
-#!/usr/bin/env python3
-"""
-dash_flask_ofc.py  (v6 - abas + logo + rodape + carregamento gradual)
-"""
-import os, sys, json, csv, io, re, time, threading, glob
-from datetime import datetime, date
-from calendar import monthrange
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests
-from flask import Flask, request, jsonify, send_file, Response
-
-app = Flask(__name__)
-
-EMPRESAS = [
-    {"nome": "REAL MAIS", "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT", "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
-    {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
-]
-BASE_URL = "https://api.vhsys.com/v2"
-STATUS_EXCLUIDOS = {"Cancelado"}
-SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
-
-_metas_lock = threading.Lock()
-_metas = {"Simone Moura": 215000.00, "Isa": 241500.00, "Ana Ruth": 65000.00, "GP DISTRIBUIDORA": 100000.00}
-_metas_consolidada = 1005277.76
-CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
-CACHE_TEMPO_SEGUNDOS = 1800
-_cache_lock = threading.Lock()
-_cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False, "carregando_completo": False}
-_cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
-_cmv_lock = threading.Lock()
-
-def make_headers(empresa):
-    return {"access-token": empresa["access_token"], "secret-access-token": empresa["secret_token"], "Cache-Control": "no-cache", "User-Agent": "MinhaAplicacao/1.0", "Content-Type": "application/json"}
-
-def normalizar_data(v):
-    if not v: return ""
-    s = str(v).strip()
-    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', s)
-    if m: return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
-    m = re.match(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{4})', s)
-    if m: return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
-    m = re.match(r'^(\d{1,2})[/-](\d{1,2})[/-](\d{2})', s)
-    if m: return f"20{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
-    return ""
-
-def normalizar_nome(n):
-    if not n: return "Sem vendedor"
-    s = str(n).replace('\xa0',' ').replace('\t',' ').replace('\n',' ').replace('\r',' ')
-    s = ' '.join(s.split())
-    return s if s else "Sem vendedor"
-
-def ler_dados_entregas():
-    urls = [f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv&gid=0", f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/export?format=csv", f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:csv"]
-    content = None
-    for url in urls:
-        try:
-            resp = requests.get(url, timeout=30, allow_redirects=True)
-            t = resp.text[:500].strip()
-            if '<html' in t.lower() or '<!doctype' in t.lower(): continue
-            if resp.status_code == 200 and len(resp.content) > 50:
-                content = resp.content.decode('utf-8'); break
-        except: continue
-    if content is None: return []
-    entregas = []
-    try:
-        reader = csv.reader(io.StringIO(content)); data_atual = ""
-        for row in reader:
-            if not row or all(c.strip()=="" for c in row): continue
-            pc = row[0].strip() if row[0] else ""
-            if "PLANILHA DE ENTREGAS" in pc.upper():
-                mt = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', pc)
-                data_atual = f"{mt.group(3)}-{mt.group(2).zfill(2)}-{mt.group(1).zfill(2)}" if mt else ""
-                continue
-            if pc.upper() == "CLIENTES": continue
-            if data_atual and len(row) >= 3:
-                ent = row[2].strip().upper() if row[2] else ""
-                if ent in ("RETIRADA","RETRADA","RETITADA"): ent = "RETIRADA"
-                if ent: entregas.append({"data": data_atual, "entregador": ent, "cliente": row[0].strip() if row[0] else "", "nota": row[1].strip() if row[1] else ""})
-    except: return []
-    return entregas
-
-def listar_pedidos_periodo(di, df, empresa, headers):
-    ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
-    todos = []; offset = 0; limit = 500; pag = 1
-    while pag <;= 200:
-        params = {"limit": limit, "offset": offset, "order": ofield, "sort": "Desc"}
-        try: resp = requests.get(f"{BASE_URL}{ep}", headers=headers, params=params, timeout=30)
-        except: break
-        if resp.status_code != 200: break
-        try: payload = resp.json()
-        except: break
-        lote = payload.get("data", [])
-        if isinstance(lote, dict): lote = [lote]
-        if not lote or not isinstance(lote, list): break
-        todos.extend(lote)
-        antes = sum(1 for p in lote if isinstance(p, dict) and (lambda dp: dp and dp != "0000-00-00" and dp < di)(normalizar_data(p.get(dfield,""))))
-        if antes > 0: break
-        offset += limit; pag += 1
-    return [p for p in todos if isinstance(p, dict) and (lambda dp: dp and dp != "0000-00-00" and di <;= dp <;= df and not p.update({dfield: dp}))(normalizar_data(p.get(dfield,"")))]
-
-def processar_pedidos(pedidos, empresa):
-    en = empresa["nome"]; dfield = empresa["data_field"]; procs = []
-    for p in pedidos:
-        if not isinstance(p, dict): continue
-        st = p.get("status_pedido", "")
-        if st in STATUS_EXCLUIDOS: continue
-        try: vl = float(p.get("valor_total_nota","0") or "0")
-        except: vl = 0.0
-        vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome(p.get("vendedor_pedido",""))
-        procs.append({"id": str(p.get("id_ped", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
-    return procs
-
-def buscar_compras_periodo(empresa, di, df):
-    headers = make_headers(empresa); compras = []; offset = 0; limit = 250; pag = 0
-    while pag < 50:
-        params = {"limit": limit, "offset": offset, "order": "data_pedido", "sort": "Desc"}
-        try: resp = requests.get(f"{BASE_URL}/entradas-mercadoria/", headers=headers, params=params, timeout=30)
-        except: break
-        if resp.status_code != 200: break
-        try: payload = resp.json()
-        except: break
-        lote = payload.get("data", [])
-        if not lote or isinstance(lote, dict): break
-        ta = False
-        for c in lote:
-            if not isinstance(c, dict): continue
-            dc = normalizar_data(c.get("data_pedido","")); st = c.get("status_pedido","")
-            if dc and di <;= dc <;= df and st == "Atendido": compras.append(c)
-            if dc and dc < di: ta = True
-        if ta: break
-        offset += limit; pag += 1
-        if len(lote) < limit: break
-    return compras
-
-def calcular_cmv_background(di, df, eirm, eigp, efrm, efgp):
-    with _cmv_lock:
-        if _cmv_cache["calculando"]: return
-        _cmv_cache["calculando"] = True; _cmv_cache["params"] = f"{di}_{df}_{eirm}_{eigp}_{efrm}_{efgp}"
-    try:
-        crm = buscar_compras_periodo(EMPRESAS[0], di, df)
-        tcrm = sum(float(c.get("valor_total_nota",0) or 0) for c in crm)
-        eit = eirm + eigp; eft = efrm + efgp; cmv = eit + tcrm - eft
-        r = {"status":"concluido","data_inicial":di,"data_final":df,"estoque_inicial_rm":eirm,"estoque_inicial_gp":eigp,"estoque_inicial_total":round(eit,2),"compras_rm":round(tcrm,2),"compras_gp":0.0,"compras_total":round(tcrm,2),"estoque_final_rm":efrm,"estoque_final_gp":efgp,"estoque_final_total":round(eft,2),"cmv":round(cmv,2)}
-
-
 def gerar_dashboard_html(pedidos, entregas):
     dj = json.dumps(pedidos, ensure_ascii=False)
     ej = json.dumps(entregas, ensure_ascii=False)
     with _metas_lock:
         mj = json.dumps(_metas, ensure_ascii=False)
         mc = _metas_consolidada
-        dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
-
+    dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
     if pedidos:
         ds = sorted([p["data"] for p in pedidos if p["data"]])
         mind = ds[0] if ds else date.today().isoformat()
@@ -299,7 +153,7 @@ function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.to
 function pm(){var a=new Date();var i=new Date(a.getFullYear(),a.getMonth(),1);var f=new Date(a.getFullYear(),a.getMonth()+1,0);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
 function pt(){sd('__MIN__','__MAX__')}
 function sd(i,f){document.getElementById('dIni').value=i;document.getElementById('dFim').value=f;af()}
-function af(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;if(!ini||!fim)return;var ped=TP.filter(function(p){return p.data>=ini&&p.data<;=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);document.getElementById('mesL').textContent=fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<;=fim});re(ent,ini,fim)}
+function af(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;if(!ini||!fim)return;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);document.getElementById('mesL').textContent=fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
 function rk(ft,qv,tm,dp,nv){var el='Consolidado';if(ef==='REAL MAIS')el='REAL MAIS';else if(ef==='GP DISTRIBUIDORA')el='GP';document.getElementById('kpi').innerHTML='<div class="kc"><div class="kl">Faturamento '+el+'</div><div class="kv">'+fm(ft)+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc grn"><div class="kl">Vendas</div><div class="kv">'+qv+'</div><div class="ks">nao cancelados</div></div><div class="kc amb"><div class="kl">Ticket Medio</div><div class="kv">'+fm(tm)+'</div><div class="ks">por venda</div></div><div class="kc pur"><div class="kl">Vendedoras Ativas</div><div class="kv">'+nv+'</div><div class="ks">no periodo</div></div>'}
 function rc(ped,ft,qv){var pe={};ped.forEach(function(p){if(!pe[p.empresa])pe[p.empresa]={f:0,q:0};pe[p.empresa].f+=p.valor;pe[p.empresa].q+=1});document.getElementById('kpiC').innerHTML='<div class="kc"><div class="kl">Faturamento Total</div><div class="kv">'+fm(ft)+'</div><div class="ks">'+qv+' venda(s)</div></div><div class="kc grn"><div class="kl">REAL MAIS</div><div class="kv">'+fm(pe['REAL MAIS']?pe['REAL MAIS'].f:0)+'</div><div class="ks">'+(pe['REAL MAIS']?pe['REAL MAIS'].q:0)+' venda(s)</div></div><div class="kc amb"><div class="kl">GP DISTRIBUIDORA</div><div class="kv">'+fm(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].f:0)+'</div><div class="ks">'+(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].q:0)+' venda(s)</div></div><div class="kc pur"><div class="kl">Ticket Geral</div><div class="kv">'+fm(qv>0?ft/qv:0)+'</div><div class="ks">consolidado</div></div>';var h='';Object.entries(pe).sort(function(a,b){return b[1].f-a[1].f}).forEach(function(entry,i){var n=entry[0],d=entry[1];var p=ft>0?(d.f/ft*100):0;var t=d.q>0?d.f/d.q:0;var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+n+'</td><td class="vc">'+fm(d.f)+'</td><td>'+d.q+'</td><td>'+fm(t)+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});document.getElementById('tbEmp').innerHTML=h}
 function rm(vs,mr,fma,maStr){var h='';if(ef==='todos'){var tm2=MC,tf=fma,pc=tm2>0?(tf/tm2*100):0,pb=Math.min(pc,100),fl=Math.max(tm2-tf,0);var sc,st,cb;if(pc>=100){sc='sb';st='Meta atingida';cb='#16a34a'}else if(pc>=70){sc='sp';st='Quase la';cb='#f59e0b'}else{sc='sl';st='Em progresso';cb='#dc2626'}var tv=TP.filter(function(p){return p.data.substring(0,7)===maStr}).reduce(function(s,p){return s+1},0);var nm=fm2(maStr);var tf2='';if(tm2>0&&pc<100){tf2='Faltam <strong style="color:#fff">'+fm(fl)+'</strong> para a meta de '+nm}else if(tm2>0&&pc>=100){tf2='Superou a meta de '+nm+' em <strong style="color:#fff">'+fm(tf-tm2)+'</strong>'}h+='<div class="mc con"><div class="mh"><div class="ma" style="background:#fff;color:#2563eb">C</div><div><div class="mn">META CONSOLIDADA - '+nm+'</div><div class="ms">'+tv+' venda(s) em '+nm+' - Ticket: '+fm(tv>0?tf/tv:0)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pc.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv">'+fm(tf)+'</span><span style="color:rgba(255,255,255,.7);font-size:13px"> / '+fm(tm2)+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf2?'<div class="mf">'+tf2+'</div>':'')+'</div>'}var nw=new Set(vs.map(function(v){return v.n.toLowerCase()}));var td=vs.slice();Object.keys(M).forEach(function(n){if(!nw.has(n.toLowerCase())){var ee=(n==='GP DISTRIBUIDORA')?'GP DISTRIBUIDORA':'REAL MAIS';if(ef==='todos'||ef===ee)td.push({n:n,f:0,q:0,e:ee})}});td.sort(function(a,b){var ma2=bm(a.n),mb2=bm(b.n);return(mb2>0?b.f/mb2:0)-(ma2>0?a.f/ma2:0)});td.forEach(function(v,i){var m2=bm(v.n),c=C[i%C.length],ini=v.n.split(' ').map(function(p){return p[0]}).join('').substring(0,2).toUpperCase(),pm2=m2>0?(v.f/m2*100):0,pb2=Math.min(pm2,100);var sc,st,cb;if(m2===0){sc='sn';st='Sem meta';cb='#94a3b8'}else if(pm2>=100){sc='sb';st='Batida';cb='#16a34a'}else if(pm2>=70){sc='sp';st='Quase';cb='#f59e0b'}else{sc='sl';st='Progresso';cb='#dc2626'}var fl=m2>0?Math.max(m2-v.f,0):0,tm3=v.q>0?v.f/v.q:0;var tf3='';if(m2>0&&pm2<100){tf3='Faltam <strong>'+fm(fl)+'</strong>'}else if(m2>0&&pm2>=100){tf3='Superou <strong>'+fm(v.f-m2)+'</strong>'}var be=v.e==='GP DISTRIBUIDORA'?'<span style="background:#fef3c7;color:#f59e0b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px">GP</span>':'<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px">RM</span>';h+='<div class="mc"><div class="mh"><div class="ma" style="background:'+c+'">'+ini+'</div><div><div class="mn">'+v.n+be+'</div><div class="ms">'+v.q+' venda(s) - Ticket: '+fm(tm3)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb2+'%;background:'+cb+'">'+pm2.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv '+(pm2>=100?'at':'')+'">'+fm(v.f)+'</span><span style="color:var(--mut);font-size:13px"> / '+(m2>0?fm(m2):'-')+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf3?'<div class="mf">'+tf3+'</div>':'')+'</div>'});document.getElementById('metas').innerHTML=h}
@@ -326,7 +180,6 @@ LOADING_HTML = '''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 
 @app.route('/logo')
 def logo():
-    import os, glob
     caminhos = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
         os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
@@ -349,7 +202,8 @@ def dashboard():
             return _cache["html"]
         if _cache["buscando"]:
             return LOADING_HTML
-    hoje = date.today(); ma = hoje.month
+    hoje = date.today()
+    ma = hoje.month
     mes_inicio = max(1, ma - 2)
     threading.Thread(target=buscar_dados_background, args=(mes_inicio, ma), daemon=True).start()
     return LOADING_HTML
@@ -357,20 +211,29 @@ def dashboard():
 @app.route('/atualizar')
 def forcar_atualizacao():
     with _cache_lock:
-        _cache["timestamp"] = 0; _cache["html"] = ""; _cache["buscando"] = False; _cache["carregando_completo"] = False
+        _cache["timestamp"] = 0
+        _cache["html"] = ""
+        _cache["buscando"] = False
+        _cache["carregando_completo"] = False
     threading.Thread(target=buscar_dados_background, daemon=True).start()
     return "<script>window.location.href='/';</script>"
 
 @app.route('/cmv')
 def cmv_endpoint():
-    di = request.args.get('data_inicial', ''); df = request.args.get('data_final', '')
-    eirm = float(request.args.get('est_ini_rm', 0) or 0); eigp = float(request.args.get('est_ini_gp', 0) or 0)
-    efrm = float(request.args.get('est_fin_rm', 0) or 0); efgp = float(request.args.get('est_fin_gp', 0) or 0)
-    if not di or not df: return jsonify({"status": "erro", "erro": "Datas nao informadas"})
+    di = request.args.get('data_inicial', '')
+    df = request.args.get('data_final', '')
+    eirm = float(request.args.get('est_ini_rm', 0) or 0)
+    eigp = float(request.args.get('est_ini_gp', 0) or 0)
+    efrm = float(request.args.get('est_fin_rm', 0) or 0)
+    efgp = float(request.args.get('est_fin_gp', 0) or 0)
+    if not di or not df:
+        return jsonify({"status": "erro", "erro": "Datas nao informadas"})
     pk = f"{di}_{df}_{eirm}_{eigp}_{efrm}_{efgp}"
     with _cmv_lock:
-        if _cmv_cache["data"] and _cmv_cache["params"] == pk and not _cmv_cache["calculando"]: return jsonify(_cmv_cache["data"])
-        if _cmv_cache["calculando"] and _cmv_cache["params"] == pk: return jsonify({"status": "calculando"})
+        if _cmv_cache["data"] and _cmv_cache["params"] == pk and not _cmv_cache["calculando"]:
+            return jsonify(_cmv_cache["data"])
+        if _cmv_cache["calculando"] and _cmv_cache["params"] == pk:
+            return jsonify({"status": "calculando"})
     threading.Thread(target=calcular_cmv_background, args=(di, df, eirm, eigp, efrm, efgp), daemon=True).start()
     return jsonify({"status": "iniciando"})
 
@@ -378,19 +241,26 @@ def cmv_endpoint():
 def api_metas():
     global _metas_consolidada
     if request.method == 'GET':
-        with _metas_lock: return jsonify({"metas": _metas, "consolidada": _metas_consolidada})
+        with _metas_lock:
+            return jsonify({"metas": _metas, "consolidada": _metas_consolidada})
     dados = request.get_json()
-    if not dados: return jsonify({"status": "erro", "erro": "Dados nao enviados"}), 400
+    if not dados:
+        return jsonify({"status": "erro", "erro": "Dados nao enviados"}), 400
     with _metas_lock:
-        if '_consolidada' in dados: _metas_consolidada = float(dados['_consolidada'])
+        if '_consolidada' in dados:
+            _metas_consolidada = float(dados['_consolidada'])
         for k, v in dados.items():
-            if k != '_consolidada': _metas[k] = float(v)
-    with _cache_lock: _cache["timestamp"] = 0; _cache["html"] = ""
+            if k != '_consolidada':
+                _metas[k] = float(v)
+    with _cache_lock:
+        _cache["timestamp"] = 0
+        _cache["html"] = ""
     return jsonify({"status": "ok"})
 
 def init_background():
     time.sleep(2)
-    hoje = date.today(); ma = hoje.month
+    hoje = date.today()
+    ma = hoje.month
     mes_inicio = max(1, ma - 2)
     buscar_dados_background(mes_inicio, ma)
 
