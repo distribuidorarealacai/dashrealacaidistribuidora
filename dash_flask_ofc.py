@@ -16,7 +16,7 @@ EMPRESAS = [
     {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
 ]
 BASE_URL = "https://api.vhsys.com/v2"
-STATUS_INCLUIDOS = {"Atendido", "Em andamento"}
+STATUS_INCLUIDOS = {"Atendido", "Em Andamento"}
 SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
 
 _metas_lock = threading.Lock()
@@ -28,7 +28,21 @@ _cache_lock = threading.Lock()
 _cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False}
 _cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
 _cmv_lock = threading.Lock()
+CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dash_cache.json')
 
+def _read_cache():
+    try:
+        with open(CACHE_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return {"timestamp": 0, "html": "", "erro": "", "buscando": False}
+
+def _write_cache(data):
+    try:
+        with open(CACHE_FILE, 'w') as f:
+            json.dump(data, f)
+    except:
+        pass
 def make_headers(empresa):
     return {"access-token": empresa["access_token"], "secret-access-token": empresa["secret_token"], "Cache-Control": "no-cache", "User-Agent": "MinhaAplicacao/1.0", "Content-Type": "application/json"}
 
@@ -171,9 +185,10 @@ def buscar_dados_de_mes(ano, mes, empresa):
     return processar_pedidos(listar_pedidos_periodo(di, dff, empresa, h), empresa)
 
 def buscar_dados_background():
-    with _cache_lock:
-        if _cache["buscando"]: return
-        _cache["buscando"] = True
+    c = _read_cache()
+    if c.get("buscando") and (time.time() - c.get("timestamp", 0)) < 300:
+        return
+    _write_cache({"timestamp": time.time(), "html": "", "erro": "", "buscando": True})
     try:
         hoje = date.today()
         ano = hoje.year
@@ -195,17 +210,13 @@ def buscar_dados_background():
         print(f"[DEBUG] Entregas: {len(ent)}", flush=True)
         html = gerar_dashboard_html(todos, ent)
         print(f"[DEBUG] HTML gerado: {len(html)} chars", flush=True)
-        with _cache_lock:
-            _cache["timestamp"] = time.time()
-            _cache["html"] = html
-            _cache["erro"] = ""
-            _cache["buscando"] = False
+        _write_cache({"timestamp": time.time(), "html": html, "erro": "", "buscando": False})
         print("[DEBUG] Concluido com sucesso!", flush=True)
     except Exception as e:
         print(f"[DEBUG] ERRO FATAL: {e}", flush=True)
-        with _cache_lock:
-            _cache["erro"] = str(e)
-            _cache["buscando"] = False
+        _write_cache({"timestamp": time.time(), "html": "", "erro": str(e), "buscando": False})
+
+
 
 def gerar_dashboard_html(pedidos, entregas):
     dj = json.dumps(pedidos, ensure_ascii=False)
@@ -424,15 +435,12 @@ def dashboard():
 
 @app.route('/status')
 def status():
-    with _cache_lock:
-        return jsonify({"tem_html": bool(_cache["html"]), "buscando": _cache["buscando"], "erro": _cache["erro"], "timestamp": _cache["timestamp"]})
+    c = _read_cache()
+    return jsonify({"tem_html": bool(c.get("html")), "buscando": c.get("buscando", False), "erro": c.get("erro", ""), "timestamp": c.get("timestamp", 0)})
 
 @app.route('/atualizar')
 def forcar_atualizacao():
-    with _cache_lock:
-        _cache["timestamp"] = 0
-        _cache["html"] = ""
-        _cache["buscando"] = False
+    _write_cache({"timestamp": 0, "html": "", "erro": "", "buscando": False})
     threading.Thread(target=buscar_dados_background, daemon=True).start()
     return "<script>window.location.href='/';</script>"
 
@@ -494,9 +502,8 @@ def api_metas():
         for k, v in dados.items():
             if k != '_consolidada':
                 _metas[k] = float(v)
-    with _cache_lock:
-        _cache["timestamp"] = 0
-        _cache["html"] = ""
+    c = _read_cache()
+    _write_cache({"timestamp": 0, "html": "", "erro": "", "buscando": False})
     return jsonify({"status": "ok"})
 
 def init_background():
