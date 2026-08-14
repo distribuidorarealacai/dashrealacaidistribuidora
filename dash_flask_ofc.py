@@ -391,7 +391,7 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
-LOADING_HTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="5"><title>Carregando</title></head><body style="font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0"><div style="text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.1)"><h2>Carregando dashboard...</h2><p style="color:#64748b;margin-top:8px">Aguarde, buscando dados.</p></div></body></html>'
+LOADING_HTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="30"><title>Carregando</title></head><body style="font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0"><div style="text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.1)"><h2>Carregando dashboard...</h2><p style="color:#64748b;margin-top:8px">Aguarde, buscando dados.</p></div></body></html>'
 
 @app.route('/logo')
 def logo():
