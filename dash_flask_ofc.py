@@ -499,7 +499,7 @@ def api_metas():
         for k, v in dados.items():
             if k != '_consolidada':
                 _metas[k] = float(v)
-        with _cache_lock:
+    with _cache_lock:
         _cache["timestamp"] = 0
         _cache["html"] = ""
     return jsonify({"status": "ok"})
