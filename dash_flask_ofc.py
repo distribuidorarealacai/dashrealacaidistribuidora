@@ -140,7 +140,7 @@ def calcular_cmv_background(di, df, eirm, eigp, efrm, efgp):
         crm = buscar_compras_periodo(EMPRESAS[0], di, df)
         tcrm = sum(float(c.get("valor_total_nota",0) or 0) for c in crm)
         eit = eirm + eigp; eft = efrm + efgp; cmv = eit + tcrm - eft
-        r =
+        r = {"status":"concluido","data_inicial":di,"data_final":df,"estoque_inicial_rm":eirm,"estoque_inicial_gp":eigp,"estoque_inicial_total":round(eit,2),"compras_rm":round(tcrm,2),"compras_gp":0.0,"compras_total":round(tcrm,2),"estoque_final_rm":efrm,"estoque_final_gp":efgp,"estoque_final_total":round(eft,2),"cmv":round(cmv,2)}
 
 
         def gerar_dashboard_html(pedidos, entregas):
