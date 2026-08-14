@@ -449,7 +449,7 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
-LOADING_HTML = '''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carregando...</title><style>body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}</style><meta http-equiv="refresh" content="5"></head><body><div class="l"><div class="s"></div><h1>Buscando dados...</h1><p>Aguarde, coletando vendas e entregas.</p></div><div style="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#94a3b8;padding:16px;text-align:center;font-size:12px">(c) 2026 Real Acai Distribuidora - Desenvolvido por Gabriel Freitas - v1.0.0</div></body></html>'''
+LOADING_HTML = '''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carregando...</title><style>body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}</style><meta http-equiv="refresh" content="3"></head><body><div class="l"><div class="s"></div><h1>Buscando dados...</h1><p>Coletando vendas de Agosto/2026.</p><p style="margin-top:8px;font-size:12px;color:#94a3b8;">Atualizando em 3 segundos...</p></div><div style="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#94a3b8;padding:16px;text-align:center;font-size:12px">(c) 2026 Real Acai Distribuidora - Desenvolvido por Gabriel Freitas - v1.0.0</div></body></html>'''
 
 @app.route('/logo')
 def logo():
@@ -468,6 +468,7 @@ def logo():
     pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(pixel, mimetype='image/png')
 
+
 @app.route('/')
 def dashboard():
     with _cache_lock:
@@ -475,10 +476,7 @@ def dashboard():
             return _cache["html"]
         if _cache["buscando"]:
             return LOADING_HTML
-    hoje = date.today()
-    ma = hoje.month
-    mes_inicio = max(1, ma - 2)
-    threading.Thread(target=buscar_dados_background, args=(mes_inicio, ma), daemon=True).start()
+    threading.Thread(target=buscar_dados_background, daemon=True).start()
     return LOADING_HTML
 
 @app.route('/atualizar')
@@ -554,12 +552,32 @@ def api_metas():
         _cache["html"] = ""
     return jsonify({"status": "ok"})
 
-def init_background():
-    time.sleep(2)
-    hoje = date.today()
-    ma = hoje.month
-    mes_inicio = max(1, ma - 2)
-    buscar_dados_background(mes_inicio, ma)
+def buscar_dados_background():
+    with _cache_lock:
+        if _cache["buscando"]: return
+        _cache["buscando"] = True
+    try:
+        hoje = date.today()
+        ano = hoje.year
+        ma = hoje.month
+        tarefas = [(ano, ma, emp) for emp in EMPRESAS]
+        todos = []
+        with ThreadPoolExecutor(max_workers=16) as ex:
+            fs = {ex.submit(buscar_dados_de_mes, a, m, e): (m, e["nome"]) for (a, m, e) in tarefas}
+            for f in as_completed(fs):
+                try: todos.extend(f.result())
+                except: pass
+        ent = ler_dados_entregas()
+        html = gerar_dashboard_html(todos, ent)
+        with _cache_lock:
+            _cache["timestamp"] = time.time()
+            _cache["html"] = html
+            _cache["erro"] = ""
+            _cache["buscando"] = False
+    except Exception as e:
+        with _cache_lock:
+            _cache["erro"] = str(e)
+            _cache["buscando"] = False
 
 threading.Thread(target=init_background, daemon=True).start()
 
