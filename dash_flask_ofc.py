@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dash_flask_ofc.py  (v8 - mes atual + busca sob demanda + ajax loading)
+dash_flask_ofc.py  (v9 - mes atual + busca sob demanda + ajax loading + tratamento de erro)
 """
 import os, sys, json, csv, io, re, time, threading, glob
 from datetime import datetime, date
@@ -45,7 +45,7 @@ def normalizar_data(v):
 
 def normalizar_nome(n):
     if not n: return "Sem vendedor"
-    s = str(n).replace('\xa0',' ').replace('\t',' ').replace('',' ').replace('\r',' ')
+    s = str(n).replace('\xa0',' ').replace('\t',' ').replace('\n',' ').replace('\r',' ')
     s = ' '.join(s.split())
     return s if s else "Sem vendedor"
 
@@ -174,6 +174,7 @@ def buscar_dados_background():
     with _cache_lock:
         if _cache["buscando"]: return
         _cache["buscando"] = True
+        _cache["erro"] = ""
     try:
         hoje = date.today()
         ano = hoje.year
@@ -221,14 +222,14 @@ def gerar_dashboard_html(pedidos, entregas):
     else:
         mind = date.today().replace(day=1).isoformat()
         maxd = date.today().isoformat()
-    html = r'''
-
-
-
-
-Real Acai Distribuidora - Dashboard
-
-
+    html = r'''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Acai Distribuidora - Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
 :root{--bg:#f0f2f5;--card:#fff;--pri:#2563eb;--pl:#dbeafe;--grn:#16a34a;--gl:#dcfce7;--amb:#f59e0b;--al:#fef3c7;--red:#dc2626;--rl:#fee2e2;--txt:#1e293b;--mut:#64748b;--brd:#e2e8f0;--sh:0 1px 3px rgba(0,0,0,.1);--shl:0 4px 6px rgba(0,0,0,.07);--r:12px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
@@ -299,53 +300,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .footer-name{font-size:15px;font-weight:700;color:#fff;letter-spacing:1px}
 .footer-tags{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin:4px 0}
 .footer-copy{font-size:12px;color:#64748b;margin-top:12px}
-
-
-
-RAReal Acai DistribuidoraDashboard Gerencial - Vhsys API v2Dados gerados em: __DG__
-
-Comercial
-Logistica
-Contabil
-
-
-DeAteAplicarHoje7dMesTudo
-Empresa:ConsolidadoREAL MAISGP
-
-
-Metas -  Gerenciar Metas
-
-Editar MetasSalvarCancelar
-Faturamento por VendedoraFaturamento DiarioParticipacao
-Detalhamento por VendedoraVendedoraEmpFaturamentoVendasTicketMeta%Meta%Tot
-
-
-
-Entregas por EntregadorEntregas por Dia
-Detalhamento de EntregasEntregadorTotal%
-
-
-
-CMV - Custo de Mercadorias Vendidas
-
-Estoque InicialEstoque Final
-Est.Ini RMEst.Ini GPEst.Fin RMEst.Fin GP
-Calcular CMV
-
-
-Faturamento por EmpresaEmpresaFaturamentoVendasTicket%
-
-
-Gabriel Freitas
-Desenvolvedor Autonomo - Desenvolvimento - Sistemas - Automacao - Inteligencia de Dados
-
-Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial VHSYS, utilizado pela Real Acai Distribuidora.
-Sistema desenvolvido exclusivamente para: REAL ACAI DISTRIBUIDORA
-
-(c) 2026 Real Acai Distribuidora - Todos os direitos reservadosDesenvolvido por Gabriel Freitas - Desenvolvedor Autonomo - v1.0.0 - Ultima atualizacao: 14/08/2026
-
-
-
+</style>
+</head>
+<body>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
+<div class="tabs">
+<button class="tab act" onclick="sw('comercial',this)">Comercial</button>
+<button class="tab" onclick="sw('logistica',this)">Logistica</button>
+<button class="tab" onclick="sw('contabil',this)">Contabil</button>
+</div>
+<div class="ctn">
+<div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
+<div class="fb" id="fbEmp" style="padding:14px 24px"><div class="ef"><span class="el">Empresa:</span><button class="be act" onclick="se('todos',this)">Consolidado</button><button class="be" onclick="se('REAL MAIS',this)">REAL MAIS</button><button class="be" onclick="se('GP DISTRIBUIDORA',this)">GP</button></div></div>
+<div id="tc-com" class="tc act">
+<div class="kg" id="kpi"></div>
+<div class="st">Metas - <span id="mesL"></span> <button class="bp" onclick="tmp()" style="background:var(--al);color:var(--amb);float:right">Gerenciar Metas</button></div>
+<div class="mg" id="metas"></div>
+<div class="mp" id="mp"><div class="ct">Editar Metas</div><div id="mef"></div><div style="margin-top:16px;display:flex;gap:8px"><button class="bs" onclick="svm()">Salvar</button><button class="bp" onclick="tmp()">Cancelar</button></div></div>
+<div class="cg"><div class="cc"><div class="ct">Faturamento por Vendedora</div><div class="cw"><canvas id="cV"></canvas></div></div><div class="cc"><div class="ct">Faturamento Diario</div><div class="cw"><canvas id="cD"></canvas></div></div><div class="cc f"><div class="ct">Participacao</div><div class="cw"><canvas id="cK"></canvas></div></div></div>
+<div class="tc2"><div class="ct">Detalhamento por Vendedora</div><table><thead><tr><th>Vendedora</th><th>Emp</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>Meta</th><th>%Meta</th><th>%Tot</th></tr></thead><tbody id="tb"></tbody></table></div>
+</div>
+<div id="tc-log" class="tc">
+<div class="kg" id="kpiE"></div>
+<div class="cg"><div class="cc"><div class="ct">Entregas por Entregador</div><div class="cw"><canvas id="cE"></canvas></div></div><div class="cc"><div class="ct">Entregas por Dia</div><div class="cw"><canvas id="cED"></canvas></div></div></div>
+<div class="tc2"><div class="ct">Detalhamento de Entregas</div><table><thead><tr><th>Entregador</th><th>Total</th><th>%</th></tr></thead><tbody id="tbE"></tbody></table></div>
+</div>
+<div id="tc-con" class="tc">
+<div class="kg" id="kpiC"></div>
+<div class="st">CMV - Custo de Mercadorias Vendidas</div>
+<div class="fb" style="flex-direction:column;align-items:flex-start;gap:12px">
+<div class="cig"><div class="fg"><label>Estoque Inicial</label><input type="date" id="cmvDi"></div><div class="fg"><label>Estoque Final</label><input type="date" id="cmvDf"></div></div>
+<div class="cig"><div class="fg"><label>Est.Ini RM</label><input type="number" id="cmvEi" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Ini GP</label><input type="number" id="cmvEig" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin RM</label><input type="number" id="cmvEf" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin GP</label><input type="number" id="cmvEfg" step="0.01" placeholder="0" style="width:160px"></div></div>
+<button class="ba" onclick="calcCMV()">Calcular CMV</button>
+</div>
+<div id="cmvR" style="margin-bottom:24px"></div>
+<div class="tc2"><div class="ct">Faturamento por Empresa</div><table><thead><tr><th>Empresa</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>%</th></tr></thead><tbody id="tbEmp"></tbody></table></div>
+</div>
+<div class="footer">
+<div class="footer-name">Gabriel Freitas</div>
+<div class="footer-tags">Desenvolvedor Autonomo - Desenvolvimento - Sistemas - Automacao - Inteligencia de Dados</div>
+<hr class="footer-divider">
+<div class="footer-section">Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial <strong>VHSYS</strong>, utilizado pela Real Acai Distribuidora.</div>
+<div class="footer-section">Sistema desenvolvido exclusivamente para: <strong>REAL ACAI DISTRIBUIDORA</strong></div>
+<hr class="footer-divider">
+<div class="footer-copy">(c) 2026 Real Acai Distribuidora - Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas - Desenvolvedor Autonomo - v1.0.0</div>
+</div>
+</div>
+<script>
 const TP=__DJ__,TE=__EJ__,M=__MJ__,MC=__MC__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 let cV=null,cD=null,cK=null,cE=null,cED=null,ef='todos';
 var loadedRange={start:null,end:null};
@@ -354,8 +355,7 @@ function removerLoad(){var o=document.getElementById('ovLoad');if(o)o.remove()}
 function buscarPeriodo(ini,fim){fetch('/buscar_periodo?data_inicial='+ini+'&data_final='+fim).then(function(r){return r.json()}).then(function(d){if(d.status==='ok'){var ids=new Set(TP.map(function(p){return p.id}));d.pedidos.forEach(function(p){if(!ids.has(p.id)){TP.push(p);ids.add(p.id)}});if(!loadedRange.start||ini<loadedRange.start)loadedRange.start=ini;if(!loadedRange.end||fim>loadedRange.end)loadedRange.end=fim}removerLoad();renderTudo()}).catch(function(){removerLoad();alert('Erro ao buscar dados. Tente novamente.')})}
 function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);document.getElementById('mesL').textContent=fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
 function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
-function nn(n){if(!n)return'Sem vendedor';return String(n).replace(/[\xa0\t
-\r]/g,' ').replace(/\s+/g,' ').trim()}
+function nn(n){if(!n)return'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim()}
 function bm(n){var nl=n.toLowerCase();var k=Object.keys(M).find(function(x){return x.toLowerCase()===nl});return k?M[k]:0}
 function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
 function fd(i){var p=i.split('-');return p[2]+'/'+p[1]}
@@ -385,13 +385,14 @@ function bCMV(i,f,ei,eig,ef,efg){fetch('/cmv?data_inicial='+i+'&data_final='+f+'
 function rCMV(d){var f=function(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})};document.getElementById('cmvR').innerHTML='<div class="tc2"><div class="ct">CMV de '+d.data_inicial.split('-').reverse().join('/')+' a '+d.data_final.split('-').reverse().join('/')+'</div><table><thead><tr><th>Componente</th><th>REAL MAIS</th><th>GP</th><th>Total</th></tr></thead><tbody><tr><td class="vn">(+) Estoque Inicial</td><td class="vc">'+f(d.estoque_inicial_rm)+'</td><td class="vc">'+f(d.estoque_inicial_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.estoque_inicial_total)+'</td></tr><tr><td class="vn">(+) Compras (auto)</td><td class="vc">'+f(d.compras_rm)+'</td><td class="vc">'+f(d.compras_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.compras_total)+'</td></tr><tr><td class="vn">(-) Estoque Final</td><td>'+f(d.estoque_final_rm)+'</td><td>'+f(d.estoque_final_gp)+'</td><td style="font-size:16px">'+f(d.estoque_final_total)+'</td></tr><tr style="border-top:3px solid #2563eb"><td class="vn" style="font-size:16px">= CMV</td><td></td><td></td><td class="vc" style="font-size:20px;color:#dc2626">'+f(d.cmv)+'</td></tr></tbody></table></div>'}
 document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.type==='date')af()});
 window.addEventListener('DOMContentLoaded',init);
-
-
-'''
+</script>
+</body>
+</html>'''
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
-LOADING_HTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="30"><title>Carregando</title></head><body style="font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0"><div style="text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.1)"><h2>Carregando dashboard...</h2><p style="color:#64748b;margin-top:8px">Aguarde, buscando dados.</p></div></body></html>'
+
+LOADING_HTML = '''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carregando...</title><style>body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}#erro{color:#dc2626;font-size:14px;margin-top:12px;display:none}#retry{display:none;margin-top:16px;padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}</style><script>function check(){fetch('/status').then(function(r){return r.json()}).then(function(d){if(d.erro){document.getElementById('s').style.display='none';document.getElementById('h').textContent='Erro ao buscar dados';document.getElementById('p').textContent=d.erro;document.getElementById('erro').style.display='block';document.getElementById('retry').style.display='inline-block'}else if(d.tem_html){window.location.reload()}else{setTimeout(check,3000)}}).catch(function(){setTimeout(check,5000)})}check()</script></head><body><div class="l"><div class="s" id="s"></div><h1 id="h">Buscando dados...</h1><p id="p">Coletando vendas do mes atual no VHSys.</p><div id="erro"></div><button id="retry" onclick="window.location.href='/atualizar'">Tentar novamente</button></div><div style="position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#94a3b8;padding:16px;text-align:center;font-size:12px">(c) 2026 Real Acai Distribuidora - Desenvolvido por Gabriel Freitas - v1.0.0</div></body></html>'''
 
 @app.route('/logo')
 def logo():
@@ -407,7 +408,7 @@ def logo():
     matches = glob.glob('**/*ogo*.png', recursive=True)
     if matches:
         return send_file(matches[0], mimetype='image/png')
-    pixel = b'\x89PNG\r\x1a\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
+    pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(pixel, mimetype='image/png')
 
 @app.route('/')
@@ -416,9 +417,16 @@ def dashboard():
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
             return _cache["html"]
         if _cache["buscando"]:
-            return Response(LOADING_HTML, content_type='text/html')
+            return LOADING_HTML
+        if _cache["erro"]:
+            return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro ao buscar dados:<br><br>{_cache['erro']}</h1><div style='text-align:center;margin-top:20px'><a href='/atualizar' style='padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-family:sans-serif'>Tentar novamente</a></div>"
     threading.Thread(target=buscar_dados_background, daemon=True).start()
-    return Response(LOADING_HTML, content_type='text/html')
+    return LOADING_HTML
+
+@app.route('/status')
+def status():
+    with _cache_lock:
+        return jsonify({"tem_html": bool(_cache["html"]), "buscando": _cache["buscando"], "erro": _cache["erro"], "timestamp": _cache["timestamp"]})
 
 @app.route('/atualizar')
 def forcar_atualizacao():
@@ -426,8 +434,9 @@ def forcar_atualizacao():
         _cache["timestamp"] = 0
         _cache["html"] = ""
         _cache["buscando"] = False
+        _cache["erro"] = ""
     threading.Thread(target=buscar_dados_background, daemon=True).start()
-    return "window.location.href='/';"
+    return "<script>window.location.href='/';</script>"
 
 @app.route('/buscar_periodo')
 def buscar_periodo_endpoint():
