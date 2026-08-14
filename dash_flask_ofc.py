@@ -45,8 +45,7 @@ def normalizar_data(v):
 
 def normalizar_nome(n):
     if not n: return "Sem vendedor"
-    s = str(n).replace('\xa0',' ').replace('\t',' ').replace('
-',' ').replace('\r',' ')
+    s = str(n).replace('\xa0',' ').replace('\t',' ').replace('',' ').replace('\r',' ')
     s = ' '.join(s.split())
     return s if s else "Sem vendedor"
 
