@@ -144,12 +144,12 @@ def calcular_cmv_background(di, df, eirm, eigp, efrm, efgp):
 
 
 def gerar_dashboard_html(pedidos, entregas):
-    dj = json.dumps(pedidos, ensure_ascii=False)
-    ej = json.dumps(entregas, ensure_ascii=False)
+        dj = json.dumps(pedidos, ensure_ascii=False)
+        ej = json.dumps(entregas, ensure_ascii=False)
     with _metas_lock:
-    mj = json.dumps(_metas, ensure_ascii=False)
-    mc = _metas_consolidada
-    dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
+        mj = json.dumps(_metas, ensure_ascii=False)
+        mc = _metas_consolidada
+        dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
 
     if pedidos:
         ds = sorted([p["data"] for p in pedidos if p["data"]])
