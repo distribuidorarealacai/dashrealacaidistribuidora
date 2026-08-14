@@ -16,7 +16,7 @@ EMPRESAS = [
     {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
 ]
 BASE_URL = "https://api.vhsys.com/v2"
-STATUS_INCLUIDOS = {"Atendido", "Em andamento"}
+STATUS_INCLUIDOS = {"Atendido", "Em Andamento"}
 SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
 
 _metas_lock = threading.Lock()
