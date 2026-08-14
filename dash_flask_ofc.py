@@ -422,10 +422,18 @@ def dashboard():
     threading.Thread(target=buscar_dados_background, daemon=True).start()
             return Response(LOADING_HTML, content_type='text/html')
 
-@app.route('/status')
-def status():
+@app.route('/')
+def dashboard():
     with _cache_lock:
-        return jsonify({"tem_html": bool(_cache["html"]), "buscando": _cache["buscando"], "erro": _cache["erro"], "timestamp": _cache["timestamp"]})
+        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
+            return _cache["html"]
+        if _cache["buscando"]:
+            return Response(LOADING_HTML, content_type='text/html')
+        if _cache["erro"]:
+            return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro ao buscar dados:<br><br>{_cache['erro']}</h1><div style='text-align:center;margin-top:20px'><a href='/atualizar' style='padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-family:sans-serif'>Tentar novamente</a></div>"
+    threading.Thread(target=buscar_dados_background, daemon=True).start()
+    return Response(LOADING_HTML, content_type='text/html')
+
 
 @app.route('/atualizar')
 def forcar_atualizacao():
