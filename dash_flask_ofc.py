@@ -579,6 +579,10 @@ def buscar_dados_background():
             _cache["erro"] = str(e)
             _cache["buscando"] = False
 
+
+def init_background():
+    buscar_dados_background()
+
 threading.Thread(target=init_background, daemon=True).start()
 
 if __name__ == "__main__":
