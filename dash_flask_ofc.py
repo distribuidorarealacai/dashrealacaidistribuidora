@@ -12,6 +12,8 @@ SECRET_TOKEN = "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO"
 OUTPUT_DIR = Path(__file__).resolve().parent
 DADOS_JSON = OUTPUT_DIR / "vhsys_dados_pedidos.json"
 DASHBOARD_HTML = OUTPUT_DIR / "dashboard_vhsys.html"
+FLAG_FASE1 = OUTPUT_DIR / "fase1.flag"
+FLAG_FASE2 = OUTPUT_DIR / "fase2.flag"
 
 STATUS_EXCLUIDOS = {"Cancelado"}
 HEADERS_BASE = {
@@ -145,6 +147,7 @@ def gerar_fase1():
     html = gerar_dashboard_html(pedidos, 1)
     with open(DASHBOARD_HTML, "w", encoding="utf-8") as f:
         f.write(html)
+    FLAG_FASE1.touch()
     print(f"[F1] OK: {len(pedidos)} pedidos")
 
 def gerar_fase2():
@@ -169,6 +172,7 @@ def gerar_fase2():
     html = gerar_dashboard_html(mesclados, 2)
     with open(DASHBOARD_HTML, "w", encoding="utf-8") as f:
         f.write(html)
+    FLAG_FASE2.touch()
     print(f"[F2] OK: {len(mesclados)} pedidos")
 
 def gerar_dashboard_html(pedidos, fase=2):
@@ -255,6 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .pct-bar{background:var(--border);border-radius:6px;height:8px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px;}
 .pct-fill{height:100%;border-radius:6px;}
 .no-data{text-align:center;padding:48px;color:var(--text-muted);font-size:16px;}
+.footer{text-align:center;padding:24px;color:var(--text-muted);font-size:12px;border-top:1px solid var(--border);margin-top:24px;}
 </style>
 </head>
 <body>
@@ -292,6 +297,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <tbody id="tabelaBody"></tbody></table>
 </div>
 </div>
+<div class="footer">
+(c) 2026 Real Mais - Sistema integrado Vhsys API v2<br>
+Dashboard Corporativo - Acompanhamento de vendas e metas em tempo real
+</div>
 <script>
 var PEDIDOS = ''' + dados_json + ''';
 var METAS = ''' + metas_json + ''';
@@ -324,19 +333,22 @@ def gerar_boas_vindas():
     return '''<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}
+<title>Dashboard - Real Mais</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:sans-serif;background:linear-gradient(135deg,#0f172a,#1e3a5f,#2563eb);color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center}
 .c{text-align:center}.l{width:80px;height:80px;background:rgba(255,255,255,.15);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 24px}
 h1{font-size:32px;margin-bottom:12px}
 p{opacity:.8;margin-bottom:32px}
 .s{border:4px solid rgba(255,255,255,.2);border-top:4px solid #fff;border-radius:50%;width:48px;height:48px;animation:sp 1s linear infinite;margin:0 auto 16px}
 @keyframes sp{100%{transform:rotate(360deg)}}
+.f{margin-top:40px;font-size:12px;opacity:.5}
 </style></head><body><div class="c">
 <div class="l">📊</div>
 <h1>Dashboard Corporativo</h1>
 <p>Carregando dados da API Vhsys...</p>
 <div class="s"></div>
+<div class="f">(c) 2026 Real Mais - Vhsys API v2</div>
 </div>
 <script>
 async function v(){try{var r=await fetch('/status');var d=await r.json();if(d.ready)window.location.href='/'}catch(e){}}
@@ -345,13 +357,11 @@ setInterval(v,5000);v();
 </body></html>'''
 
 app = Flask(__name__)
-fase1_ok = False
-fase2_ok = False
 
 @app.route('/')
 def raiz():
-    global fase1_ok
-    if fase1_ok and DASHBOARD_HTML.exists():
+    # SEM variaveis globais - usa ARQUIVO como sinal (compativel com gunicorn multi-worker)
+    if DASHBOARD_HTML.exists():
         return send_file(str(DASHBOARD_HTML))
     return gerar_boas_vindas()
 
@@ -363,22 +373,25 @@ def painel():
 
 @app.route('/status')
 def checar():
-    global fase1_ok, fase2_ok
-    return jsonify({"ready": fase1_ok, "fase2": fase2_ok})
+    # SEM variaveis globais - checa se o arquivo existe no disco
+    return jsonify({
+        "ready": DASHBOARD_HTML.exists(),
+        "fase1": FLAG_FASE1.exists(),
+        "fase2": FLAG_FASE2.exists()
+    })
 
 @app.route('/atualizar')
 def refresh():
-    global fase1_ok, fase2_ok
-    fase1_ok = False
-    fase2_ok = False
+    # Apagar flags e HTML antigo
+    for f in [FLAG_FASE1, FLAG_FASE2, DASHBOARD_HTML]:
+        if f.exists():
+            f.unlink()
+
     def rodar():
-        global fase1_ok, fase2_ok
         try:
             gerar_fase1()
-            fase1_ok = True
             print("[BG] F1 OK")
             gerar_fase2()
-            fase2_ok = True
             print("[BG] F2 OK")
         except Exception as e:
             print(f"[BG] ERRO: {e}")
@@ -388,31 +401,49 @@ def refresh():
 
 @app.route('/health')
 def saude():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "dashboard": DASHBOARD_HTML.exists()})
+
+# Lock para evitar que multiplos workers rodem a busca ao mesmo tempo
+_lock = threading.Lock()
+_buscando = False
 
 def iniciar():
-    global fase1_ok, fase2_ok
+    global _buscando
     threading.Event().wait(3)
-    if DASHBOARD_HTML.exists() and DADOS_JSON.exists():
-        fase1_ok = True
+
+    # Se ja tem dashboard pronto, nao fazer nada
+    if DASHBOARD_HTML.exists() and FLAG_FASE2.exists():
+        print("[INIT] Dashboard completo ja existe.")
+        return
+
+    # Se ja tem fase 1, so fazer fase 2
+    if DASHBOARD_HTML.exists() and FLAG_FASE1.exists() and not FLAG_FASE2.exists():
+        print("[INIT] Fase 1 ja existe. Buscando fase 2...")
         try:
-            with open(DADOS_JSON, "r", encoding="utf-8") as f:
-                dados = json.load(f)
-            if len(dados) > 1000:
-                fase2_ok = True
-                return
-        except:
-            pass
-    try:
-        if not fase1_ok:
-            gerar_fase1()
-            fase1_ok = True
-        if not fase2_ok:
             gerar_fase2()
-            fase2_ok = True
+        except Exception as e:
+            print(f"[INIT] ERRO F2: {e}")
+            traceback.print_exc()
+        return
+
+    # Se nao tem nada, fazer as 2 fases
+    with _lock:
+        if _buscando:
+            print("[INIT] Outro worker ja esta buscando. Aguardando...")
+            return
+        _buscando = True
+
+    try:
+        print("[BG] Fase 1...")
+        gerar_fase1()
+        print("[BG] Fase 2...")
+        gerar_fase2()
     except Exception as e:
         print(f"[BG] ERRO: {e}")
         traceback.print_exc()
+    finally:
+        with _lock:
+            _buscando = False
 
 threading.Thread(target=iniciar, daemon=True).start()
 
