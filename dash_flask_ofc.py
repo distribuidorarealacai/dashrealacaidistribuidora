@@ -56,7 +56,7 @@ def ler_dados_entregas():
         try:
             resp = requests.get(url, timeout=30, allow_redirects=True)
             t = resp.text[:500].strip()
-            if '
+            if '<html' in t.lower() or '<!doctype' in t.lower(): continue
             if resp.status_code == 200 and len(resp.content) > 50:
                 content = resp.content.decode('utf-8'); break
         except: continue
