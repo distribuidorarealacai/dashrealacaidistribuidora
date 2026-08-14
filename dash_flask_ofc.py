@@ -24,8 +24,6 @@ _metas = {"Simone Moura": 215000.00, "Isa": 241500.00, "Ana Ruth": 65000.00, "GP
 _metas_consolidada = 1005277.76
 CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
 CACHE_TEMPO_SEGUNDOS = 1800
-_cache_lock = threading.Lock()
-_cache = {"timestamp": 0, "html": "", "erro": "", "buscando": False}
 _cmv_cache = {"timestamp": 0, "data": None, "calculando": False, "params": ""}
 _cmv_lock = threading.Lock()
 _cache_lock = threading.Lock()
@@ -485,6 +483,26 @@ def cmv_endpoint():
             return jsonify({"status": "calculando"})
     threading.Thread(target=calcular_cmv_background, args=(di, df, eirm, eigp, efrm, efgp), daemon=True).start()
     return jsonify({"status": "iniciando"})
+
+@app.route('/api/metas', methods=['GET', 'POST'])
+def api_metas():
+    global _metas_consolidada
+    if request.method == 'GET':
+        with _metas_lock:
+            return jsonify({"metas": _metas, "consolidada": _metas_consolidada})
+    dados = request.get_json()
+    if not dados:
+        return jsonify({"status": "erro", "erro": "Dados nao enviados"}), 400
+    with _metas_lock:
+        if '_consolidada' in dados:
+            _metas_consolidada = float(dados['_consolidada'])
+        for k, v in dados.items():
+            if k != '_consolidada':
+                _metas[k] = float(v)
+        with _cache_lock:
+        _cache["timestamp"] = 0
+        _cache["html"] = ""
+    return jsonify({"status": "ok"})
 
 @app.route('/api/metas', methods=['GET', 'POST'])
 def api_metas():
