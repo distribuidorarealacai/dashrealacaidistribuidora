@@ -81,7 +81,7 @@ def ler_dados_entregas():
 
 def listar_pedidos_periodo(di, df, empresa, headers):
     ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
-    todos = []; offset = 0; limit = 500; pag = 1
+       todos = []; offset = 0; limit = 250; pag = 1
     while pag <= 200:
         params = {"limit": limit, "offset": offset, "order": ofield, "sort": "Desc"}
         try: resp = requests.get(f"{BASE_URL}{ep}", headers=headers, params=params, timeout=30)
@@ -99,6 +99,7 @@ def listar_pedidos_periodo(di, df, empresa, headers):
             dp = normalizar_data(p.get(dfield,""))
             if dp and dp != "0000-00-00" and dp < di: antes += 1
         if antes > 0: break
+        if len(lote) < limit: break
         offset += limit; pag += 1
     filtrados = []
     for p in todos:
