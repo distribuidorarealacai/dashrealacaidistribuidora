@@ -143,13 +143,13 @@ def calcular_cmv_background(di, df, eirm, eigp, efrm, efgp):
         r = {"status":"concluido","data_inicial":di,"data_final":df,"estoque_inicial_rm":eirm,"estoque_inicial_gp":eigp,"estoque_inicial_total":round(eit,2),"compras_rm":round(tcrm,2),"compras_gp":0.0,"compras_total":round(tcrm,2),"estoque_final_rm":efrm,"estoque_final_gp":efgp,"estoque_final_total":round(eft,2),"cmv":round(cmv,2)}
 
 
-      def gerar_dashboard_html(pedidos, entregas):
-        dj = json.dumps(pedidos, ensure_ascii=False)
-        ej = json.dumps(entregas, ensure_ascii=False)
-        with _metas_lock:
-        mj = json.dumps(_metas, ensure_ascii=False)
-        mc = _metas_consolidada
-        dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
+def gerar_dashboard_html(pedidos, entregas):
+    dj = json.dumps(pedidos, ensure_ascii=False)
+    ej = json.dumps(entregas, ensure_ascii=False)
+    with _metas_lock:
+    mj = json.dumps(_metas, ensure_ascii=False)
+    mc = _metas_consolidada
+    dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
 
     if pedidos:
         ds = sorted([p["data"] for p in pedidos if p["data"]])
