@@ -643,13 +643,7 @@ def buscar_dados_background():
 
 LOADING_HTML = '''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Carregando...</title><style>body{font-family:sans-serif;background:#f0f2f5;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.l{text-align:center;padding:40px;background:#fff;border-radius:16px;box-shadow:0 4px 6px rgba(0,0,0,.07)}.s{width:50px;height:50px;border:5px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 20px;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}h1{color:#1e293b;font-size:20px}p{color:#64748b;font-size:14px}</style><meta http-equiv="refresh" content="10"></head><body><div class="l"><div class="s"></div><h1>Buscando dados...</h1><p>Aguarde, coletando vendas e entregas.</p></div></body></html>'''
 
-@app.route('/')
-def dashboard():
-    with _cache_lock:
-        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS: return _cache["html"]
-        if _cache["buscando"]: return LOADING_HTML
-    threading.Thread(target=buscar_dados_background, daemon=True).start()
-    return LOADING_HTML
+ LOADING_HTML
 
 @app.route('/atualizar')
 def forcar_atualizacao():
