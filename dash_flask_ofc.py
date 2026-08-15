@@ -270,9 +270,10 @@ def login_page_html(erro=""):
 <title>Login - Real Acai Dashboard</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}}
-.card{{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px;width:380px;max-width:90vw}}
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}}
+.card{{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px;width:380px;max-width:90vw;margin-bottom:0}}
 .logo{{text-align:center;margin-bottom:28px}}
+.logo img{{max-height:100px;max-width:220px;object-fit:contain;margin-bottom:8px}}
 .logo h1{{font-size:22px;color:#1e3a5f;font-weight:800}}
 .logo p{{font-size:13px;color:#64748b;margin-top:4px}}
 .field{{margin-bottom:20px}}
@@ -283,11 +284,19 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 .btn:hover{{transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.4)}}
 .err{{background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px;text-align:center}}
 .hint{{text-align:center;margin-top:16px;font-size:12px;color:#94a3b8}}
+.footer{{width:100%;max-width:600px;margin:24px auto 0;text-align:center;color:rgba(255,255,255,.6);font-size:12px;line-height:1.8}}
+.footer strong{{color:rgba(255,255,255,.85)}}
+.footer-divider{{border:none;border-top:1px solid rgba(255,255,255,.15);margin:12px auto;max-width:400px}}
+.footer-copy{{font-size:11px;opacity:.7}}
 </style>
 </head>
 <body>
 <div class="card">
-<div class="logo"><h1>Real Acai Distribuidora</h1><p>Dashboard Gerencial</p></div>
+<div class="logo">
+<img src="/logo" alt="Logo Real Acai" onerror="this.style.display='none'" style="max-height:100px;max-width:220px;object-fit:contain">
+<h1>Real Acai Distribuidora</h1>
+<p>Dashboard Gerencial</p>
+</div>
 {msg}
 <form method="POST" action="/login">
 <div class="field"><label>Usuario</label><input type="text" name="username" autofocus required></div>
@@ -295,6 +304,11 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <button class="btn" type="submit">Entrar</button>
 </form>
 <div class="hint">Acesso restrito a colaboradores autorizados</div>
+</div>
+<div class="footer">
+<div>Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial <strong>VHSYS</strong></div>
+<hr class="footer-divider">
+<div class="footer-copy">(c) 2026 Real Acai Distribuidora - Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas</div>
 </div>
 </body>
 </html>'''
@@ -486,7 +500,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><div id="logoFallback" style="width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;display:flex;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
 <div class="tabs" id="navTabs">
 <button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
 <button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
@@ -770,4 +784,3 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     print(f"Dashboard online em http://0.0.0.0:{port}")
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
-
