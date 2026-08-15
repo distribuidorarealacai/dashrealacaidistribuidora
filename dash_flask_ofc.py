@@ -189,10 +189,10 @@ def buscar_dados_mes_atual():
     print(f"[DEBUG] Total: {len(todos)}", flush=True)
     return todos
 def gerar_dashboard_html(pedidos, entregas):
-    dj = json.dumps(pedidos, ensure_ascii=False)
-    ej = json.dumps(entregas, ensure_ascii=False)
+    dj = json.dumps(pedidos, ensure_ascii=False).replace('</', '<\/')
+    ej = json.dumps(entregas, ensure_ascii=False).replace('</', '<\/')
     with _metas_lock:
-        mj = json.dumps(_metas, ensure_ascii=False)
+        mj = json.dumps(_metas, ensure_ascii=False).replace('</', '<\/')
         mc = _metas_consolidada
     dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
     if pedidos:
