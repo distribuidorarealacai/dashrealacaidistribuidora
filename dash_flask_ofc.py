@@ -533,7 +533,7 @@ td.vn{{font-weight:600}}
 def gerar_dashboard_html(pedidos, entregas, produtos):
     def safe_json(obj):
         s = json.dumps(obj, ensure_ascii=False, default=str)
-        return s.replace('<', '\u003c').replace('>', '\u003e').replace('&', '\u0026').replace("'", "\u0027")
+        return s.replace('<', '\u003c').replace('>', '\u003e').replace('&', '\u0026')
     dj = safe_json(pedidos)
     ej = safe_json(entregas)
     pj = safe_json(produtos)
