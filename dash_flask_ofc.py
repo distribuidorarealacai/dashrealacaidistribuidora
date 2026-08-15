@@ -258,6 +258,137 @@ def buscar_dados_mes_atual():
     print(f"[DEBUG] Total: {len(todos)}", flush=True)
     return todos
 
+
+
+def login_page_html(erro=""):
+    msg = f'<div class="err">{erro}</div>' if erro else ''
+    return f'''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Real Acai Dashboard</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}}
+.card{{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px;width:380px;max-width:90vw}}
+.logo{{text-align:center;margin-bottom:28px}}
+.logo h1{{font-size:22px;color:#1e3a5f;font-weight:800}}
+.logo p{{font-size:13px;color:#64748b;margin-top:4px}}
+.field{{margin-bottom:20px}}
+.field label{{display:block;font-size:13px;font-weight:600;color:#475569;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}}
+.field input{{width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;transition:border .2s}}
+.field input:focus{{border-color:#2563eb}}
+.btn{{width:100%;background:linear-gradient(135deg,#2563eb,#1e3a5f);color:#fff;border:none;padding:13px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:transform .1s}}
+.btn:hover{{transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.4)}}
+.err{{background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px;text-align:center}}
+.hint{{text-align:center;margin-top:16px;font-size:12px;color:#94a3b8}}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo"><h1>Real Acai Distribuidora</h1><p>Dashboard Gerencial</p></div>
+{msg}
+<form method="POST" action="/login">
+<div class="field"><label>Usuario</label><input type="text" name="username" autofocus required></div>
+<div class="field"><label>Senha</label><input type="password" name="senha" required></div>
+<button class="btn" type="submit">Entrar</button>
+</form>
+<div class="hint">Acesso restrito a colaboradores autorizados</div>
+</div>
+</body>
+</html>'''
+
+def admin_page_html(users):
+    linhas = ''
+    for uname, u in sorted(users.items()):
+        setor_label = SETORES.get(u["setor"], u["setor"])
+        role_label = {"admin_master": "Admin Master", "admin": "Admin (Visualizador)", "user": "Colaborador"}.get(u["role"], u["role"])
+        is_master = u["role"] == "admin_master"
+        btn_excluir = '' if is_master else f'<form method="POST" action="/admin/usuarios/excluir" style="display:inline" onsubmit="return confirm(\'Excluir {u["nome"]}?\')"><input type="hidden" name="username" value="{uname}"><button class="btn-d" type="submit">Excluir</button></form>'
+        btn_senha = f'<form method="POST" action="/admin/usuarios/senha" style="display:inline"><input type="hidden" name="username" value="{uname}"><input type="password" name="nova_senha" placeholder="Nova senha" class="inp-sm" required><button class="btn-s" type="submit">Trocar</button></form>'
+        badge = '<span class="badge master">MASTER</span>' if is_master else f'<span class="badge">{role_label}</span>'
+        linhas += f'''<tr>
+<td class="vn">{u["nome"]}{badge}</td>
+<td>{uname}</td>
+<td>{setor_label}</td>
+<td>{role_label}</td>
+<td class="actions">{btn_senha} {btn_excluir}</td>
+</tr>'''
+
+    opts_setor = ''.join([f'<option value="{k}">{v}</option>' for k, v in SETORES.items()])
+    opts_role = '<option value="user">Colaborador (por setor)</option><option value="admin">Admin (ver tudo)</option>'
+
+    return f'''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerenciar Usuarios - Real Acai</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f0f2f5;color:#1e293b;min-height:100vh}}
+.hdr{{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}}
+.hdr h1{{font-size:20px;font-weight:700}}
+.hdr a{{color:#fff;text-decoration:none;font-size:14px;background:rgba(255,255,255,.15);padding:8px 16px;border-radius:8px}}
+.hdr a:hover{{background:rgba(255,255,255,.25)}}
+.ctn{{max-width:1100px;margin:0 auto;padding:24px}}
+.card{{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:24px;margin-bottom:24px}}
+.card h2{{font-size:17px;font-weight:700;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0}}
+.form-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;align-items:end}}
+.fg label{{display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px}}
+.fg input,.fg select{{width:100%;padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none}}
+.fg input:focus,.fg select:focus{{border-color:#2563eb}}
+.btn-add{{background:#16a34a;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}}
+.btn-add:hover{{background:#15803d}}
+table{{width:100%;border-collapse:collapse;margin-top:8px}}
+th{{text-align:left;padding:12px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0}}
+td{{padding:12px;font-size:14px;border-bottom:1px solid #f1f5f9}}
+td.vn{{font-weight:600}}
+.badge{{display:inline-block;background:#dbeafe;color:#2563eb;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;margin-left:8px}}
+.badge.master{{background:#fef3c7;color:#f59e0b}}
+.actions{{display:flex;gap:6px;align-items:center;flex-wrap:wrap}}
+.inp-sm{{padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;width:120px}}
+.btn-s{{background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}}
+.btn-d{{background:#dc2626;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}}
+.ok{{background:#dcfce7;color:#16a34a;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px}}
+.err2{{background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px}}
+</style>
+</head>
+<body>
+<div class="hdr">
+<h1>Gerenciar Usuarios</h1>
+<a href="/">Voltar ao Dashboard</a>
+</div>
+<div class="ctn">
+<div class="card">
+<h2>Adicionar Novo Usuario</h2>
+<form method="POST" action="/admin/usuarios/novo">
+<div class="form-grid">
+<div class="fg"><label>Nome Completo</label><input type="text" name="nome" required></div>
+<div class="fg"><label>Usuario (login)</label><input type="text" name="username" required></div>
+<div class="fg"><label>Senha</label><input type="password" name="senha" required></div>
+<div class="fg"><label>Setor</label><select name="setor">{opts_setor}</select></div>
+<div class="fg"><label>Tipo de Conta</label><select name="role">{opts_role}</select></div>
+<div class="fg"><button class="btn-add" type="submit">Adicionar</button></div>
+</div>
+</form>
+</div>
+<div class="card">
+<h2>Usuarios Cadastrados</h2>
+<table>
+<thead><tr><th>Nome</th><th>Login</th><th>Setor</th><th>Tipo</th><th>Acoes</th></tr></thead>
+<tbody>
+{linhas}
+</tbody>
+</table>
+</div>
+</div>
+</body>
+</html>'''
+
+
+
 def gerar_dashboard_html(pedidos, entregas):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str)
