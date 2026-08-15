@@ -128,6 +128,32 @@ def salvar_metas_produtos(metas):
     with open(METAS_PRODUTOS_FILE, 'w', encoding='utf-8') as f:
         json.dump(metas, f, ensure_ascii=False, indent=2)
 
+
+_produtos_cache = {"timestamp": 0, "data": {}, "calculando": False}
+_produtos_lock = threading.Lock()
+
+def get_produtos_cache():
+    with _produtos_lock:
+        return dict(_produtos_cache)
+
+def buscar_produtos_background(pedidos):
+    """Busca produtos em background e atualiza o cache."""
+    with _produtos_lock:
+        if _produtos_cache["calculando"]:
+            return
+        _produtos_cache["calculando"] = True
+    try:
+        resultado = buscar_produtos_de_pedidos(pedidos)
+        with _produtos_lock:
+            _produtos_cache["timestamp"] = time.time()
+            _produtos_cache["data"] = resultado
+            _produtos_cache["calculando"] = False
+        print(f"[DEBUG] Produtos cacheados: {len(resultado)}", flush=True)
+    except Exception as e:
+        print(f"[DEBUG] Erro produtos background: {e}", flush=True)
+        with _produtos_lock:
+            _produtos_cache["calculando"] = False
+
 def obter_metas_produtos_mes(mes_ano):
     metas = carregar_metas_produtos()
     return metas.get(mes_ano, {"nome_mes": "", "produtos": [], "venda_meta": 0})
@@ -655,7 +681,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <script>
 const TP=__DJ__,TE=__EJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 var ef='todos';
-var cV,cD,cK,cE,cED; const PROD=__PJ__,METAS_PROD=__MPR__;
+var cV,cD,cK,cE,cED; var PROD={},METAS_PROD=__MPR__;
 var currentMR='';
 function gm(mr){return METAS[mr]||{nome_mes:'',consolidada:0,vendedoras:{}}}
 function gmp(mr){return METAS_PROD[mr]||{nome_mes:'',produtos:[],venda_meta:0}}
@@ -673,7 +699,8 @@ function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigi
 function fd(i){var p=i.split('-');return p[2]+'/'+p[1]}
 function cd(i,f){var d1=new Date(i+'T00:00:00');var d2=new Date(f+'T00:00:00');return Math.round((d2-d1)/86400000)+1}
 function fm2(mr){var p=mr.split('-');var n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return n[parseInt(p[1])-1]+' '+p[0]}
-function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display='';var bp=document.getElementById('btnMetaProd');if(bp)bp.style.display=''}renderTudo()}
+function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display='';var bp=document.getElementById('btnMetaProd');if(bp)bp.style.display=''}renderTudo();carregarProdutos()}
+function carregarProdutos(){fetch('/api/produtos').then(function(r){return r.json()}).then(function(d){if(d.status==='calculando'){setTimeout(carregarProdutos,5000);return}if(d.status==='ok'&&d.data){PROD=d.data;renderTudo()}}).catch(function(){})}
 function se(e,b){ef=e;document.querySelectorAll('.be').forEach(function(x){x.classList.remove('act')});if(b)b.classList.add('act');af()}
 function ph(){var h=new Date().toISOString().split('T')[0];sd(h,h)}
 function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
@@ -807,18 +834,19 @@ def dashboard():
     u = usuario_logado()
     with _cache_lock:
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
-            # produtos já estão no HTML cacheado
             html = _cache["html"]
-            html = html.replace("__USER_NAME__", u["nome"])
-            html = html.replace("__USER_SECTOR__", u["setor"])
-            html = html.replace("__USER_ROLE__", u["role"])
-            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-            return html
+    if html:
+        html = html.replace("__USER_NAME__", u["nome"])
+        html = html.replace("__USER_SECTOR__", u["setor"])
+        html = html.replace("__USER_ROLE__", u["role"])
+        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+        return html
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
         todos = buscar_dados_mes_atual()
         ent = ler_dados_entregas()
-        prods = buscar_produtos_de_pedidos(todos)
+        pc = get_produtos_cache()
+        prods = pc["data"] if pc["data"] else {}
         html = gerar_dashboard_html(todos, ent, prods)
         html = html.replace("__USER_NAME__", u["nome"])
         html = html.replace("__USER_SECTOR__", u["setor"])
@@ -827,9 +855,22 @@ def dashboard():
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
+        if not pc["data"] and not pc["calculando"] and len(todos) > 0:
+            threading.Thread(target=buscar_produtos_background, args=(todos,), daemon=True).start()
         return html
     except Exception as e:
         return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
+
+
+@app.route('/api/produtos')
+@requer_login
+def api_produtos():
+    pc = get_produtos_cache()
+    if pc["calculando"]:
+        return jsonify({"status": "calculando"})
+    if pc["data"]:
+        return jsonify({"status": "ok", "data": pc["data"]})
+    return jsonify({"status": "vazio", "data": {}})
 
 @app.route('/atualizar')
 def forcar_atualizacao():
