@@ -11,6 +11,76 @@ from flask import Flask, request, jsonify, send_file, Response
 
 app = Flask(__name__)
 
+import hashlib, secrets
+from flask import session, redirect, url_for
+
+app.secret_key = secrets.token_hex(32)
+
+USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.json')
+
+def hash_senha(senha):
+    return hashlib.sha256(senha.encode('utf-8')).hexdigest()
+
+def carregar_usuarios():
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
+    admin_padrao = {
+        "admin": {
+            "nome": "Administrador Master",
+            "senha_hash": hash_senha("real2026"),
+            "role": "admin_master",
+            "setor": "all"
+        }
+    }
+    salvar_usuarios(admin_padrao)
+    return admin_padrao
+
+def salvar_usuarios(users):
+    with open(USERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+def usuario_logado():
+    if 'user' not in session:
+        return None
+    users = carregar_usuarios()
+    u = users.get(session['user'])
+    if not u:
+        session.clear()
+        return None
+    return {"username": session['user'], "nome": u["nome"], "role": u["role"], "setor": u["setor"]}
+
+def requer_login(f):
+    def wrap(*args, **kwargs):
+        u = usuario_logado()
+        if not u:
+            return redirect('/login')
+        return f(*args, **kwargs)
+    wrap.__name__ = f.__name__
+    return wrap
+
+def requer_admin_master(f):
+    def wrap(*args, **kwargs):
+        u = usuario_logado()
+        if not u:
+            return redirect('/login')
+        if u["role"] != 'admin_master':
+            return '<h1 style="color:red;text-align:center;margin-top:100px;font-family:sans-serif">Acesso negado. Apenas o Administrador Master.</h1>'
+        return f(*args, **kwargs)
+    wrap.__name__ = f.__name__
+    return wrap
+
+SETORES = {
+    "comercial": "Comercial",
+    "logistica": "Logistica",
+    "contabil": "Contabil",
+    "all": "Todas as abas"
+}
+
+
 EMPRESAS = [
     {"nome": "REAL MAIS", "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT", "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
     {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
@@ -285,11 +355,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div class="upd">Dados gerados em: __DG__</div></div>
-<div class="tabs">
-<button class="tab act" onclick="sw('comercial',this)">Comercial</button>
-<button class="tab" onclick="sw('logistica',this)">Logistica</button>
-<button class="tab" onclick="sw('contabil',this)">Contabil</button>
+<div class="hdr"><div class="hdr-logo"><div id="logoFallback" style="width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;display:flex;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
+<div class="tabs" id="navTabs">
+<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
+<button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
+<button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
 </div>
 <div class="ctn">
 <div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
@@ -331,6 +401,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <script>
 const TP=__DJ__,TE=__EJ__,M=__MJ__,MC=__MC__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 var ef='todos';
+var USER_SECTOR='__USER_SECTOR__';
+var USER_ROLE='__USER_ROLE__';
+var IS_MASTER=__IS_MASTER__;
+function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
 var cV,cD,cK,cE,cED;
 function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);document.getElementById('mesL').textContent=fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
 function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
@@ -340,7 +414,7 @@ function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigi
 function fd(i){var p=i.split('-');return p[2]+'/'+p[1]}
 function cd(i,f){var d1=new Date(i+'T00:00:00');var d2=new Date(f+'T00:00:00');return Math.round((d2-d1)/86400000)+1}
 function fm2(mr){var p=mr.split('-');var n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return n[parseInt(p[1])-1]+' '+p[0]}
-function init(){renderTudo()}
+function init(){filtrarAbas();renderTudo()}
 function se(e,b){ef=e;document.querySelectorAll('.be').forEach(function(x){x.classList.remove('act')});if(b)b.classList.add('act');af()}
 function ph(){var h=new Date().toISOString().split('T')[0];sd(h,h)}
 function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
@@ -370,6 +444,82 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user = request.form.get('username', '').strip()
+        senha = request.form.get('senha', '')
+        users = carregar_usuarios()
+        u = users.get(user)
+        if u and u["senha_hash"] == hash_senha(senha):
+            session['user'] = user
+            return redirect('/')
+        return login_page_html("Usuario ou senha invalidos.")
+    return login_page_html()
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+@app.route('/admin/usuarios')
+@requer_admin_master
+def admin_usuarios():
+    users = carregar_usuarios()
+    return admin_page_html(users)
+
+@app.route('/admin/usuarios/novo', methods=['POST'])
+@requer_admin_master
+def admin_novo_usuario():
+    nome = request.form.get('nome', '').strip()
+    username = request.form.get('username', '').strip().lower()
+    senha = request.form.get('senha', '')
+    setor = request.form.get('setor', 'comercial')
+    role = request.form.get('role', 'user')
+    if not nome or not username or not senha:
+        return redirect('/admin/usuarios?erro=campos')
+    if username == 'admin':
+        return redirect('/admin/usuarios?erro=admin')
+    users = carregar_usuarios()
+    if username in users:
+        return redirect('/admin/usuarios?erro=existe')
+    users[username] = {
+        "nome": nome,
+        "senha_hash": hash_senha(senha),
+        "role": role,
+        "setor": setor
+    }
+    salvar_usuarios(users)
+    return redirect('/admin/usuarios?ok=1')
+
+@app.route('/admin/usuarios/excluir', methods=['POST'])
+@requer_admin_master
+def admin_excluir_usuario():
+    username = request.form.get('username', '')
+    if username == 'admin':
+        return redirect('/admin/usuarios?erro=admin')
+    users = carregar_usuarios()
+    if username in users:
+        del users[username]
+        salvar_usuarios(users)
+    return redirect('/admin/usuarios?ok=excluido')
+
+@app.route('/admin/usuarios/senha', methods=['POST'])
+@requer_admin_master
+def admin_trocar_senha():
+    username = request.form.get('username', '')
+    nova = request.form.get('nova_senha', '')
+    if not nova:
+        return redirect('/admin/usuarios?erro=senha')
+    users = carregar_usuarios()
+    if username in users:
+        users[username]["senha_hash"] = hash_senha(nova)
+        salvar_usuarios(users)
+    return redirect('/admin/usuarios?ok=senha')
+
+
+
+
 @app.route('/logo')
 def logo():
     caminhos = [
@@ -388,26 +538,31 @@ def logo():
     return Response(pixel, mimetype='image/png')
 
 @app.route('/')
+@requer_login
 def dashboard():
+    u = usuario_logado()
     with _cache_lock:
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
-            print("[DEBUG] Servindo cache", flush=True)
-            return _cache["html"]
+            html = _cache["html"]
+            html = html.replace("__USER_NAME__", u["nome"])
+            html = html.replace("__USER_SECTOR__", u["setor"])
+            html = html.replace("__USER_ROLE__", u["role"])
+            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+            return html
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
         todos = buscar_dados_mes_atual()
         ent = ler_dados_entregas()
-        print(f"[DEBUG] Entregas: {len(ent)}", flush=True)
         html = gerar_dashboard_html(todos, ent)
-        print(f"[DEBUG] HTML: {len(html)} chars", flush=True)
+        html = html.replace("__USER_NAME__", u["nome"])
+        html = html.replace("__USER_SECTOR__", u["setor"])
+        html = html.replace("__USER_ROLE__", u["role"])
+        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
-            _cache["erro"] = ""
-        print("[DEBUG] OK!", flush=True)
         return html
     except Exception as e:
-        print(f"[DEBUG] ERRO: {e}", flush=True)
         return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
 
 @app.route('/atualizar')
