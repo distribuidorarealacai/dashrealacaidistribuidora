@@ -111,53 +111,6 @@ def obter_metas_mes(mes_ano):
     metas = carregar_metas()
     return metas.get(mes_ano, {"nome_mes": "", "consolidada": 0, "vendedoras": {}})
 
-METAS_PRODUTOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'metas_produtos.json')
-
-def carregar_metas_produtos():
-    if os.path.exists(METAS_PRODUTOS_FILE):
-        try:
-            with open(METAS_PRODUTOS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            pass
-    default = {"2026-08": {"nome_mes": "Agosto 2026", "produtos": [], "venda_meta": 241500.00}}
-    salvar_metas_produtos(default)
-    return default
-
-def salvar_metas_produtos(metas):
-    with open(METAS_PRODUTOS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(metas, f, ensure_ascii=False, indent=2)
-
-
-_produtos_cache = {"timestamp": 0, "data": {}, "calculando": False}
-_produtos_lock = threading.Lock()
-
-def get_produtos_cache():
-    with _produtos_lock:
-        return dict(_produtos_cache)
-
-def buscar_produtos_background(pedidos):
-    """Busca produtos em background e atualiza o cache."""
-    with _produtos_lock:
-        if _produtos_cache["calculando"]:
-            return
-        _produtos_cache["calculando"] = True
-    try:
-        resultado = buscar_produtos_de_pedidos(pedidos)
-        with _produtos_lock:
-            _produtos_cache["timestamp"] = time.time()
-            _produtos_cache["data"] = resultado
-            _produtos_cache["calculando"] = False
-        print(f"[DEBUG] Produtos cacheados: {len(resultado)}", flush=True)
-    except Exception as e:
-        print(f"[DEBUG] Erro produtos background: {e}", flush=True)
-        with _produtos_lock:
-            _produtos_cache["calculando"] = False
-
-def obter_metas_produtos_mes(mes_ano):
-    metas = carregar_metas_produtos()
-    return metas.get(mes_ano, {"nome_mes": "", "produtos": [], "venda_meta": 0})
-
 
 CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
 CACHE_TEMPO_SEGUNDOS = 1800
@@ -258,65 +211,6 @@ def processar_pedidos(pedidos, empresa):
         vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome(p.get("vendedor_pedido",""))
         procs.append({"id": str(p.get("id_ped", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
     return procs
-
-def buscar_produtos_de_pedidos(pedidos):
-    """Busca os produtos de cada pedido em paralelo e agrega por nome."""
-    if not pedidos:
-        return {}
-    print(f"[DEBUG] Buscando produtos de {len(pedidos)} pedidos...", flush=True)
-
-    def fetch_one(p):
-        empresa = None
-        for emp in EMPRESAS:
-            if emp["nome"] == p.get("empresa", ""):
-                empresa = emp
-                break
-        if not empresa:
-            return []
-        headers = make_headers(empresa)
-        pid = p.get("id", "")
-        if not pid:
-            return []
-        ep = empresa["endpoint"].rstrip("/")
-        url = f"{BASE_URL}{ep}/{pid}/produtos"
-        try:
-            resp = requests.get(url, headers=headers, timeout=30)
-            if resp.status_code == 200:
-                data = resp.json()
-                prods = data.get("data", [])
-                if isinstance(prods, dict):
-                    prods = [prods]
-                return prods if isinstance(prods, list) else []
-        except:
-            pass
-        return []
-
-    produtos_agregados = {}
-    with ThreadPoolExecutor(max_workers=16) as ex:
-        results = list(ex.map(fetch_one, pedidos))
-
-    for prods in results:
-        for prod in prods:
-            if not isinstance(prod, dict):
-                continue
-            nome = normalizar_nome(prod.get("desc_produto", ""))
-            if not nome or nome == "Sem vendedor":
-                continue
-            try:
-                qtd = float(prod.get("qtde_produto", "0") or "0")
-            except:
-                qtd = 0.0
-            try:
-                valor = float(prod.get("valor_total_produto", "0") or "0")
-            except:
-                valor = 0.0
-            if nome not in produtos_agregados:
-                produtos_agregados[nome] = {"qtd": 0, "valor": 0}
-            produtos_agregados[nome]["qtd"] += qtd
-            produtos_agregados[nome]["valor"] += valor
-
-    print(f"[DEBUG] Produtos agregados: {len(produtos_agregados)}", flush=True)
-    return produtos_agregados
 
 def buscar_compras_periodo(empresa, di, df):
     headers = make_headers(empresa); compras = []; offset = 0; limit = 250; pag = 0
@@ -530,19 +424,15 @@ td.vn{{font-weight:600}}
 
 
 
-def gerar_dashboard_html(pedidos, entregas, produtos):
+def gerar_dashboard_html(pedidos, entregas):
     def safe_json(obj):
-        s = json.dumps(obj, ensure_ascii=False, default=str)
-        return s.replace('<', '\u003c').replace('>', '\u003e').replace('&', '\u0026')
+        return json.dumps(obj, ensure_ascii=False, default=str)
     dj = safe_json(pedidos)
     ej = safe_json(entregas)
-    pj = safe_json(produtos)
     with _metas_lock:
         all_metas = carregar_metas()
         mj = safe_json(all_metas)
         mc = 0
-        all_metas_prod = carregar_metas_produtos()
-        mpr = safe_json(all_metas_prod)
         dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
     if pedidos:
         ds = sorted([p["data"] for p in pedidos if p["data"]])
@@ -552,7 +442,6 @@ def gerar_dashboard_html(pedidos, entregas, produtos):
         mind = date.today().replace(day=1).isoformat()
         maxd = date.today().isoformat()
     html = r'''<!DOCTYPE html>
-    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -648,9 +537,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="mg" id="metas"></div>
 <div class="mp" id="mp"><div class="ct">Editar Metas</div><div id="mef"></div><div style="margin-top:16px;display:flex;gap:8px"><button class="bs" onclick="svm()">Salvar</button><button class="bp" onclick="tmp()">Cancelar</button></div></div>
 <div class="cg"><div class="cc"><div class="ct">Faturamento por Vendedora</div><div class="cw"><canvas id="cV"></canvas></div></div><div class="cc"><div class="ct">Faturamento Diario</div><div class="cw"><canvas id="cD"></canvas></div></div><div class="cc f"><div class="ct">Participacao</div><div class="cw"><canvas id="cK"></canvas></div></div></div>
-<div class="st" style="margin-top:24px">Metas de Produtos - <span id="mesLProd"></span> <button id="btnMetaProd" class="bp" onclick="tmpProd()" style="background:var(--al);color:var(--amb);float:right;display:none">Gerenciar Metas de Produtos</button></div>
-<div class="mg" id="metasProd"></div>
-<div class="mp" id="mpProd"><div class="ct">Editar Metas de Produtos</div><div id="mefProd"></div><div style="margin-top:16px;display:flex;gap:8px"><button class="bs" onclick="svmProd()">Salvar</button><button class="bp" onclick="tmpProd()">Cancelar</button></div></div>
 <div class="tc2"><div class="ct">Detalhamento por Vendedora</div><table><thead><tr><th>Vendedora</th><th>Emp</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>Meta</th><th>%Meta</th><th>%Tot</th></tr></thead><tbody id="tb"></tbody></table></div>
 </div>
 <div id="tc-log" class="tc">
@@ -682,17 +568,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <script>
 const TP=__DJ__,TE=__EJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 var ef='todos';
-var cV,cD,cK,cE,cED; var PROD={},METAS_PROD=__MPR__;
+var cV,cD,cK,cE,cED;
 var currentMR='';
 function gm(mr){return METAS[mr]||{nome_mes:'',consolidada:0,vendedoras:{}}}
-function gmp(mr){return METAS_PROD[mr]||{nome_mes:'',produtos:[],venda_meta:0}}
-function matchProd(nomeMeta){var nm=nomeMeta.toUpperCase().trim();var t={qtd:0,valor:0};Object.keys(PROD).forEach(function(pn){if(pn.toUpperCase().indexOf(nm)>=0){t.qtd+=PROD[pn].qtd;t.valor+=PROD[pn].valor}});return t}
 var USER_SECTOR='__USER_SECTOR__';
 var USER_ROLE='__USER_ROLE__';
 var IS_MASTER=__IS_MASTER__;
 function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
-var cV,cD,cK,cE,cED; const PROD=__PJ__,METAS_PROD=__MPR__;
-function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var metasProdMes=gmp(mr);document.getElementById('mesLProd').textContent=metasProdMes.nome_mes||fm2(mr);rp(mr,metasProdMes,ped);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
+var cV,cD,cK,cE,cED;
+function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
 function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
 function nn(n){if(!n)return 'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim().toUpperCase()}
 function bm(n){var m=gm(currentMR);var nl=n.toLowerCase();var k=Object.keys(m.vendedoras).find(function(x){return x.toLowerCase()===nl});return k?m.vendedoras[k]:0}
@@ -700,8 +584,7 @@ function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigi
 function fd(i){var p=i.split('-');return p[2]+'/'+p[1]}
 function cd(i,f){var d1=new Date(i+'T00:00:00');var d2=new Date(f+'T00:00:00');return Math.round((d2-d1)/86400000)+1}
 function fm2(mr){var p=mr.split('-');var n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return n[parseInt(p[1])-1]+' '+p[0]}
-function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display='';var bp=document.getElementById('btnMetaProd');if(bp)bp.style.display=''}renderTudo();carregarProdutos()}
-function carregarProdutos(){fetch('/api/produtos').then(function(r){return r.json()}).then(function(d){if(d.status==='calculando'){setTimeout(carregarProdutos,5000);return}if(d.status==='ok'&&d.data){PROD=d.data;renderTudo()}}).catch(function(){})}
+function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display=''}renderTudo()}
 function se(e,b){ef=e;document.querySelectorAll('.be').forEach(function(x){x.classList.remove('act')});if(b)b.classList.add('act');af()}
 function ph(){var h=new Date().toISOString().split('T')[0];sd(h,h)}
 function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
@@ -720,11 +603,6 @@ function rcD(ped){var x=document.getElementById('cD').getContext('2d');if(cD)cD.
 function rcK(v,ft){var x=document.getElementById('cK').getContext('2d');if(cK)cK.destroy();cK=new Chart(x,{type:'doughnut',data:{labels:v.map(function(x){return x.n}),datasets:[{data:v.map(function(x){return x.f}),backgroundColor:v.map(function(_,i){return C[i%C.length]}),borderColor:'#fff',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{padding:16,font:{size:13}}},tooltip:{callbacks:{label:function(c){var p=((c.raw/ft)*100).toFixed(1);return c.label+': '+fm(c.raw)+' ('+p+'%)'}}}}}})}
 function rt(v,ft){var h='';v.forEach(function(x,i){var p=ft>0?(x.f/ft*100):0;var t=x.q>0?x.f/x.q:0;var m2=bm(x.n),pm2=m2>0?(x.f/m2*100):0;var c=C[i%C.length],cm=pm2>=100?'#16a34a':pm2>=70?'#f59e0b':'#dc2626';var be=x.e==='GP DISTRIBUIDORA'?'<span style="background:#fef3c7;color:#f59e0b;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">GP</span>':'<span style="background:#dbeafe;color:#2563eb;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">RM</span>';h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+x.n+'</td><td>'+be+'</td><td class="vc">'+fm(x.f)+'</td><td>'+x.q+'</td><td>'+fm(t)+'</td><td>'+(m2>0?fm(m2):'-')+'</td><td><span class="pb"><span class="pf" style="width:'+Math.min(pm2,100)+'%;background:'+cm+'"></span></span><strong style="color:'+cm+'">'+pm2.toFixed(0)+'%</strong></td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});document.getElementById('tb').innerHTML=h}
 function msd(){document.getElementById('kpi').innerHTML='<div class="nd">Nenhum pedido no periodo.</div>';document.getElementById('metas').innerHTML='';document.getElementById('tb').innerHTML='';document.getElementById('kpiC').innerHTML='<div class="nd">Sem dados.</div>';document.getElementById('tbEmp').innerHTML='';if(cV)cV.destroy();if(cD)cD.destroy();if(cK)cK.destroy()}
-function rp(mr,metasProdMes,ped){var h='';var fatMes=ped.reduce(function(s,p){return s+p.valor},0);if(metasProdMes.venda_meta>0){var pct=fatMes/metasProdMes.venda_meta*100,pb=Math.min(pct,100);var cb=pct>=100?'#16a34a':pct>=70?'#f59e0b':'#dc2626';var sc=pct>=100?'Meta atingida':pct>=70?'Quase la':'Em progresso';var fl=Math.max(metasProdMes.venda_meta-fatMes,0);h+='<div class="mc con"><div class="mh"><div class="ma" style="background:#fff;color:#2563eb">V</div><div><div class="mn">META DE VENDAS - '+(metasProdMes.nome_mes||fm2(mr))+'</div><div class="ms">'+ped.length+' venda(s) no periodo</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pct.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv">'+fm(fatMes)+'</span><span style="color:rgba(255,255,255,.7);font-size:13px"> / '+fm(metasProdMes.venda_meta)+'</span></div><span class="msb '+(pct>=100?'sb':pct>=70?'sp':'sl')+'">'+sc+'</span></div>'+(fl>0&&pct<100?'<div class="mf">Faltam <strong style="color:#fff">'+fm(fl)+'</strong> para a meta</div>':'')+'</div>'}if(metasProdMes.produtos.length===0&&!metasProdMes.venda_meta){h='<div class="nd">Nenhuma meta de produto cadastrada para este mes. Clique em "Gerenciar Metas de Produtos" para criar.</div>'}metasProdMes.produtos.forEach(function(p,i){var v=matchProd(p.nome);var pct=p.meta>0?(v.qtd/p.meta*100):0,pb=Math.min(pct,100);var cb=pct>=100?'#16a34a':pct>=70?'#f59e0b':'#dc2626';var sc=pct>=100?'Batida':pct>=70?'Quase':'Progresso';var fl=p.meta>0?Math.max(p.meta-v.qtd,0):0;var ini=p.nome.split(' ').map(function(w){return w[0]}).join('').substring(0,2).toUpperCase();var c=C[i%C.length];h+='<div class="mc"><div class="mh"><div class="ma" style="background:'+c+'">'+ini+'</div><div><div class="mn">'+p.nome+'</div><div class="ms">'+Math.round(v.qtd)+' vendido(s) - R$ '+v.valor.toLocaleString('pt-BR',{minimumFractionDigits:2})+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pct.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv '+(pct>=100?'at':'')+'">'+Math.round(v.qtd)+'</span><span style="color:var(--mut);font-size:13px"> / '+p.meta+' un</span></div><span class="msb '+(pct>=100?'sb':pct>=70?'sp':'sl')+'">'+sc+'</span></div>'+(fl>0&&pct<100?'<div class="mf">Faltam <strong>'+Math.round(fl)+'</strong> unidades</div>':'')+'</div>'});document.getElementById('metasProd').innerHTML=h}
-function tmpProd(){var p=document.getElementById('mpProd');if(p.classList.contains('act')){p.classList.remove('act');return}p.classList.add('act');var metasProdMes=gmp(currentMR);var h='<div class="fg" style="margin-bottom:12px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px">Nome do Mes</label><input type="text" id="mpNome" value="'+metasProdMes.nome_mes+'" placeholder="Ex: Setembro 2026" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:300px"></div>';h+='<div class="fg" style="margin-bottom:12px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px">Meta de Venda (R$)</label><input type="number" id="mpVenda" value="'+metasProdMes.venda_meta+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:200px"></div>';h+='<div style="font-weight:700;margin:16px 0 8px">Produtos e Metas (quantidade)</div>';var nomesExistentes={};metasProdMes.produtos.forEach(function(p){nomesExistentes[p.nome.toUpperCase()]=p.meta});var topProd=Object.entries(PROD).sort(function(a,b){return b[1].qtd-a[1].qtd}).slice(0,30);if(topProd.length>0){h+='<div style="font-size:12px;color:#64748b;margin-bottom:8px">Produtos encontrados no periodo (clique para preencher):</div>';h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">';topProd.forEach(function(entry){var pn=entry[0],qtd=Math.round(entry[1].qtd);h+='<button type="button" onclick="addProdRow(this)" data-nome="'+pn.replace(/"/g,'&quot;')+'" style="background:#dbeafe;color:#2563eb;border:none;padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer">'+pn+' ('+qtd+')</button>'});h+='</div>'}metasProdMes.produtos.forEach(function(p){h+='<div class="mer" data-prod-row><div class="mel">'+p.nome+'</div><input type="number" data-prod-meta="'+p.nome.replace(/"/g,'&quot;')+'" value="'+p.meta+'" step="1" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:120px"><button type="button" onclick="this.parentElement.remove()" style="background:#dc2626;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">X</button></div>'});h+='<div id="prodRows"></div><button type="button" onclick="addProdInput()" style="background:#16a34a;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-top:8px">+ Adicionar Produto</button>';document.getElementById('mefProd').innerHTML=h}
-function addProdRow(btn){var pn=btn.getAttribute('data-nome');var exist=document.querySelector('[data-prod-meta="'+pn.replace(/"/g,'&quot;')+'"]');if(exist){exist.focus();return}var d=document.createElement('div');d.setAttribute('data-prod-row','');d.className='mer';d.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e2e8f0';d.innerHTML='<div class="mel" style="flex:1">'+pn+'</div><input type="number" data-prod-meta="'+pn.replace(/"/g,'&quot;')+'" value="0" step="1" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:120px"><button type="button" onclick="this.parentElement.remove()" style="background:#dc2626;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">X</button>';document.getElementById('prodRows').appendChild(d);btn.style.opacity='0.5'}
-function addProdInput(){var d=document.createElement('div');d.setAttribute('data-prod-row','');d.className='mer';d.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #e2e8f0';d.innerHTML='<input type="text" data-prod-nome="1" placeholder="Nome do produto" style="flex:1;padding:8px;border:2px solid var(--brd);border-radius:8px"><input type="number" data-prod-meta-manual="1" value="0" step="1" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:120px"><button type="button" onclick="this.parentElement.remove()" style="background:#dc2626;color:#fff;border:none;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">X</button>';document.getElementById('prodRows').appendChild(d)}
-function svmProd(){var nome=document.getElementById('mpNome').value;var venda=parseFloat(document.getElementById('mpVenda').value)||0;var produtos=[];document.querySelectorAll('[data-prod-meta]').forEach(function(inp){var n=inp.getAttribute('data-prod-meta');var m=parseFloat(inp.value)||0;if(n&&m>0)produtos.push({nome:n,meta:m})});document.querySelectorAll('[data-prod-nome]').forEach(function(inp){var n=inp.value.trim();var mInput=inp.parentElement.querySelector('[data-prod-meta-manual]');var m=mInput?parseFloat(mInput.value)||0:0;if(n&&m>0)produtos.push({nome:n,meta:m})});var d={mes:currentMR,nome_mes:nome,venda_meta:venda,produtos:produtos};fetch('/api/metas-produtos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){return r.json()}).then(function(x){if(x.status==='ok'){alert('Metas de produtos salvas!');location.reload()}else alert('Erro: '+(x.erro||''))}).catch(function(e){alert('Erro: '+e)})}
 function calcCMV(){var i=document.getElementById('cmvDi').value,f=document.getElementById('cmvDf').value;if(!i||!f){alert('Selecione as datas');return}var ei=document.getElementById('cmvEi').value||0,eig=document.getElementById('cmvEig').value||0,ef=document.getElementById('cmvEf').value||0,efg=document.getElementById('cmvEfg').value||0;document.getElementById('cmvR').innerHTML='<div class="kc" style="text-align:center;padding:40px"><div style="width:40px;height:40px;border:4px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;margin:0 auto 16px;animation:sp 1s linear infinite"></div><p style="color:#64748b">Buscando compras...</p></div><style>@keyframes sp{to{transform:rotate(360deg)}}</style>';bCMV(i,f,ei,eig,ef,efg)}
 function bCMV(i,f,ei,eig,ef,efg){fetch('/cmv?data_inicial='+i+'&data_final='+f+'&est_ini_rm='+ei+'&est_ini_gp='+eig+'&est_fin_rm='+ef+'&est_fin_gp='+efg).then(function(r){return r.json()}).then(function(d){if(d.status==='calculando'||d.status==='iniciando'){setTimeout(function(){bCMV(i,f,ei,eig,ef,efg)},5000)}else if(d.status==='erro'){document.getElementById('cmvR').innerHTML='<div class="kc red"><div class="kl">Erro</div><div class="kv" style="font-size:16px">'+d.erro+'</div></div>'}else{rCMV(d)}}).catch(function(){setTimeout(function(){bCMV(i,f,ei,eig,ef,efg)},5000)})}
 function rCMV(d){var f=function(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})};document.getElementById('cmvR').innerHTML='<div class="tc2"><div class="ct">CMV de '+d.data_inicial.split('-').reverse().join('/')+' a '+d.data_final.split('-').reverse().join('/')+'</div><table><thead><tr><th>Componente</th><th>REAL MAIS</th><th>GP</th><th>Total</th></tr></thead><tbody><tr><td class="vn">(+) Estoque Inicial</td><td class="vc">'+f(d.estoque_inicial_rm)+'</td><td class="vc">'+f(d.estoque_inicial_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.estoque_inicial_total)+'</td></tr><tr><td class="vn">(+) Compras (auto)</td><td class="vc">'+f(d.compras_rm)+'</td><td class="vc">'+f(d.compras_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.compras_total)+'</td></tr><tr><td class="vn">(-) Estoque Final</td><td>'+f(d.estoque_final_rm)+'</td><td>'+f(d.estoque_final_gp)+'</td><td style="font-size:16px">'+f(d.estoque_final_total)+'</td></tr><tr style="border-top:3px solid #2563eb"><td class="vn" style="font-size:16px">= CMV</td><td></td><td></td><td class="vc" style="font-size:20px;color:#dc2626">'+f(d.cmv)+'</td></tr></tbody></table></div>'}
@@ -833,23 +711,19 @@ def logo():
 @requer_login
 def dashboard():
     u = usuario_logado()
-    html = None
     with _cache_lock:
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
             html = _cache["html"]
-    if html:
-        html = html.replace("__USER_NAME__", u["nome"])
-        html = html.replace("__USER_SECTOR__", u["setor"])
-        html = html.replace("__USER_ROLE__", u["role"])
-        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-        return html
+            html = html.replace("__USER_NAME__", u["nome"])
+            html = html.replace("__USER_SECTOR__", u["setor"])
+            html = html.replace("__USER_ROLE__", u["role"])
+            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+            return html
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
         todos = buscar_dados_mes_atual()
         ent = ler_dados_entregas()
-        pc = get_produtos_cache()
-        prods = pc["data"] if pc["data"] else {}
-        html = gerar_dashboard_html(todos, ent, prods)
+        html = gerar_dashboard_html(todos, ent)
         html = html.replace("__USER_NAME__", u["nome"])
         html = html.replace("__USER_SECTOR__", u["setor"])
         html = html.replace("__USER_ROLE__", u["role"])
@@ -857,23 +731,9 @@ def dashboard():
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
-        if not pc["data"] and not pc["calculando"] and len(todos) > 0:
-            threading.Thread(target=buscar_produtos_background, args=(todos,), daemon=True).start()
         return html
     except Exception as e:
-        print(f"[DEBUG] ERRO: {e}", flush=True)
         return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
-
-
-@app.route('/api/produtos')
-@requer_login
-def api_produtos():
-    pc = get_produtos_cache()
-    if pc["calculando"]:
-        return jsonify({"status": "calculando"})
-    if pc["data"]:
-        return jsonify({"status": "ok", "data": pc["data"]})
-    return jsonify({"status": "vazio", "data": {}})
 
 @app.route('/atualizar')
 def forcar_atualizacao():
@@ -949,38 +809,6 @@ def api_metas():
             "vendedoras": vendedoras
         }
         salvar_metas(metas)
-    with _cache_lock:
-        _cache["timestamp"] = 0
-        _cache["html"] = ""
-    return jsonify({"status": "ok"})
-
-
-@app.route('/api/metas-produtos', methods=['GET', 'POST'])
-def api_metas_produtos():
-    if request.method == 'GET':
-        return jsonify(carregar_metas_produtos())
-    u = usuario_logado()
-    if not u or u["role"] != 'admin_master':
-        return jsonify({"status": "erro", "erro": "Apenas admin master"}), 403
-    dados = request.get_json()
-    if not dados:
-        return jsonify({"status": "erro", "erro": "Dados nao enviados"}), 400
-    mes = dados.get('mes', '')
-    if not mes:
-        return jsonify({"status": "erro", "erro": "Mes nao informado"}), 400
-    with _metas_lock:
-        metas = carregar_metas_produtos()
-        produtos_lista = []
-        for p in dados.get("produtos", []):
-            nome = p.get("nome", "").strip()
-            if nome:
-                produtos_lista.append({"nome": nome, "meta": float(p.get("meta", 0))})
-        metas[mes] = {
-            "nome_mes": dados.get("nome_mes", ""),
-            "produtos": produtos_lista,
-            "venda_meta": float(dados.get("venda_meta", 0))
-        }
-        salvar_metas_produtos(metas)
     with _cache_lock:
         _cache["timestamp"] = 0
         _cache["html"] = ""
