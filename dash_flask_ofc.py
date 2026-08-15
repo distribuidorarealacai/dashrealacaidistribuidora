@@ -832,6 +832,7 @@ def logo():
 @requer_login
 def dashboard():
     u = usuario_logado()
+    html = None
     with _cache_lock:
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
             html = _cache["html"]
@@ -859,6 +860,7 @@ def dashboard():
             threading.Thread(target=buscar_produtos_background, args=(todos,), daemon=True).start()
         return html
     except Exception as e:
+        print(f"[DEBUG] ERRO: {e}", flush=True)
         return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
 
 
