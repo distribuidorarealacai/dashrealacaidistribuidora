@@ -145,7 +145,7 @@ def salvar_usuarios(usuarios):
         conn.close()
 
 
-        
+
 def usuario_logado():
     if 'user' not in session:
         return None
