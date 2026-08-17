@@ -66,6 +66,15 @@ def init_db():
                     UNIQUE(mes_ano)
                 );
             """)
+            # Criar usuario master fixo (gabriel_adm)
+            cur.execute("SELECT * FROM usuarios WHERE login = 'gabriel_adm'")
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT INTO usuarios (nome, login, senha, setor, role) VALUES (%s, %s, %s, %s, %s)",
+                    ('Gabriel Admin', 'gabriel_adm', '132429', 'todas as abas', 'admin_master')
+                )
+                print("[DEBUG] Usuario gabriel_adm criado", flush=True)
+            # Criar admin padrao tambem (mantem compatibilidade)
             cur.execute("SELECT * FROM usuarios WHERE login = 'admin'")
             if not cur.fetchone():
                 cur.execute(
@@ -79,34 +88,38 @@ def init_db():
     finally:
         conn.close()
 
-app.secret_key = secrets.token_hex(32)
-
-USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.json')
-
 def hash_senha(senha):
     return hashlib.sha256(senha.encode('utf-8')).hexdigest()
 
 def carregar_usuarios():
+    MASTER = {"nome":"Gabriel Admin","login":"gabriel_adm","senha":"132429","setor":"todas as abas","role":"admin_master"}
     conn = get_db_connection()
     if not conn:
         if os.path.exists(USUARIOS_FILE):
             try:
                 with open(USUARIOS_FILE, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    users = json.load(f)
+                    # Garante que o master sempre existe
+                    if not any(u.get("login") == "gabriel_adm" for u in users):
+                        users.insert(0, MASTER)
+                    return users
             except:
                 pass
-        return [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
+        return [MASTER]
     try:
         with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT nome, login, senha, setor, role FROM usuarios ORDER BY id")
             rows = cur.fetchall()
             usuarios = [dict(r) for r in rows]
+            # Garante que o master sempre existe na lista
+            if not any(u.get("login") == "gabriel_adm" for u in usuarios):
+                usuarios.insert(0, MASTER)
             if not usuarios:
-                usuarios = [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
+                usuarios = [MASTER]
             return usuarios
     except Exception as e:
         print(f"[DEBUG] Erro ao carregar usuarios: {e}", flush=True)
-        return [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
+        return [MASTER]
     finally:
         conn.close()
 
@@ -118,9 +131,9 @@ def salvar_usuarios(usuarios):
         return
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM usuarios WHERE login != 'admin'")
+            cur.execute("DELETE FROM usuarios WHERE login NOT IN ('gabriel_adm', 'admin')")
             for u in usuarios:
-                if u.get("login") == "admin":
+                if u.get("login") in ("gabriel_adm", "admin"):
                     continue
                 cur.execute(
                     "INSERT INTO usuarios (nome, login, senha, setor, role) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (login) DO UPDATE SET nome=%s, senha=%s, setor=%s, role=%s",
@@ -131,6 +144,8 @@ def salvar_usuarios(usuarios):
     finally:
         conn.close()
 
+
+        
 def usuario_logado():
     if 'user' not in session:
         return None
