@@ -424,15 +424,18 @@ td.vn{{font-weight:600}}
 
 
 
-def gerar_dashboard_html(pedidos, entregas):
+def gerar_dashboard_html(pedidos, entregas, produtos):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str)
     dj = safe_json(pedidos)
     ej = safe_json(entregas)
+    pj = safe_json(produtos)
     with _metas_lock:
         all_metas = carregar_metas()
         mj = safe_json(all_metas)
         mc = 0
+        all_metas_prod = carregar_metas_produtos()
+        mpr = safe_json(all_metas_prod)
         dg = datetime.now().strftime("%d/%m/%Y as %H:%M:%S")
     if pedidos:
         ds = sorted([p["data"] for p in pedidos if p["data"]])
@@ -611,8 +614,7 @@ window.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>'''
-    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
-    return html
+    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)    return html
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
