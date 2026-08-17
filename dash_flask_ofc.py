@@ -768,7 +768,9 @@ def login():
         user = request.form.get('username', '').strip()
         senha = request.form.get('senha', '')
         users = carregar_usuarios()
+        users = {u["login"]: u for u in usuarios}
         u = users.get(user)
+        
         if u and u["senha_hash"] == hash_senha(senha):
             session['user'] = user
             return redirect('/')
