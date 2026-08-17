@@ -15,8 +15,8 @@ import hashlib, secrets
 from flask import session, redirect, url_for
 
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+from psycopg.rows import dict_row
 
 def get_db_connection():
     db_url = os.environ.get('DATABASE_URL', '')
@@ -24,8 +24,7 @@ def get_db_connection():
         print("[DEBUG] DATABASE_URL nao configurada", flush=True)
         return None
     try:
-        conn = psycopg2.connect(db_url)
-        conn.autocommit = True
+        conn = psycopg.connect(db_url, autocommit=True)
         return conn
     except Exception as e:
         print(f"[DEBUG] Erro ao conectar DB: {e}", flush=True)
@@ -98,7 +97,7 @@ def carregar_usuarios():
                 pass
         return [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
     try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        with conn.cursor(with conn.cursor(row_factory=dict_row) as cur) as cur:
             cur.execute("SELECT nome, login, senha, setor, role FROM usuarios ORDER BY id")
             rows = cur.fetchall()
             usuarios = [dict(r) for r in rows]
