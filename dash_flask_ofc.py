@@ -707,6 +707,30 @@ def logo():
     pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(pixel, mimetype='image/png')
 
+_produtos_cache = {"timestamp": 0, "data": {}, "calculando": False}
+_produtos_lock = threading.Lock()
+
+def get_produtos_cache():
+    with _produtos_lock:
+        return dict(_produtos_cache)
+
+def buscar_produtos_background(pedidos):
+    with _produtos_lock:
+        if _produtos_cache["calculando"]:
+            return
+        _produtos_cache["calculando"] = True
+    try:
+        resultado = buscar_produtos_de_pedidos(pedidos)
+        with _produtos_lock:
+            _produtos_cache["timestamp"] = time.time()
+            _produtos_cache["data"] = resultado
+            _produtos_cache["calculando"] = False
+        print(f"[DEBUG] Produtos cacheados: {len(resultado)}", flush=True)
+    except Exception as e:
+        print(f"[DEBUG] Erro produtos background: {e}", flush=True)
+        with _produtos_lock:
+            _produtos_cache["calculando"] = False
+
 
 @app.route('/')
 @requer_login
