@@ -714,7 +714,7 @@ def dashboard():
     u = usuario_logado()
     html = None
     with _cache_lock:
-        if _cache["html"] and (time.time() - _cache["timestamp"]) &lt; CACHE_TEMPO_SEGUNDOS:
+        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
             html = _cache["html"]
     if not html:
         print("[DEBUG] Cache vazio, buscando dados...", flush=True)
