@@ -767,11 +767,11 @@ def login():
     if request.method == 'POST':
         user = request.form.get('username', '').strip()
         senha = request.form.get('senha', '')
-        users = carregar_usuarios()
+        usuarios = carregar_usuarios()
         users = {u["login"]: u for u in usuarios}
         u = users.get(user)
         
-        if u and u["senha_hash"] == hash_senha(senha):
+        if u and u["senha"] == senha:
             session['user'] = user
             return redirect('/')
         return login_page_html("Usuario ou senha invalidos.")
