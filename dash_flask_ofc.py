@@ -14,6 +14,72 @@ app = Flask(__name__)
 import hashlib, secrets
 from flask import session, redirect, url_for
 
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+def get_db_connection():
+    db_url = os.environ.get('DATABASE_URL', '')
+    if not db_url:
+        print("[DEBUG] DATABASE_URL nao configurada", flush=True)
+        return None
+    try:
+        conn = psycopg2.connect(db_url)
+        conn.autocommit = True
+        return conn
+    except Exception as e:
+        print(f"[DEBUG] Erro ao conectar DB: {e}", flush=True)
+        return None
+
+def init_db():
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    nome TEXT NOT NULL,
+                    login TEXT UNIQUE NOT NULL,
+                    senha TEXT NOT NULL,
+                    setor TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'colaborador'
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS metas (
+                    id SERIAL PRIMARY KEY,
+                    mes_ano TEXT NOT NULL,
+                    nome_mes TEXT,
+                    vendedoras JSONB DEFAULT '{}',
+                    consolidada NUMERIC DEFAULT 0,
+                    UNIQUE(mes_ano)
+                );
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS metas_produtos (
+                    id SERIAL PRIMARY KEY,
+                    mes_ano TEXT NOT NULL,
+                    nome_mes TEXT,
+                    produtos JSONB DEFAULT '[]',
+                    venda_meta NUMERIC DEFAULT 0,
+                    UNIQUE(mes_ano)
+                );
+            """)
+            cur.execute("SELECT * FROM usuarios WHERE login = 'admin'")
+            if not cur.fetchone():
+                cur.execute(
+                    "INSERT INTO usuarios (nome, login, senha, setor, role) VALUES (%s, %s, %s, %s, %s)",
+                    ('Administrador Master', 'admin', 'admin123', 'todas as abas', 'admin_master')
+                )
+                print("[DEBUG] Admin master padrao criado", flush=True)
+        print("[DEBUG] Tabelas criadas/verificadas", flush=True)
+    except Exception as e:
+        print(f"[DEBUG] Erro ao criar tabelas: {e}", flush=True)
+    finally:
+        conn.close()
+
 app.secret_key = secrets.token_hex(32)
 
 USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.json')
@@ -22,26 +88,49 @@ def hash_senha(senha):
     return hashlib.sha256(senha.encode('utf-8')).hexdigest()
 
 def carregar_usuarios():
-    if os.path.exists(USERS_FILE):
-        try:
-            with open(USERS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            pass
-    admin_padrao = {
-        "admin": {
-            "nome": "Administrador Master",
-            "senha_hash": hash_senha("Xd@132429"),
-            "role": "admin_master",
-            "setor": "all"
-        }
-    }
-    salvar_usuarios(admin_padrao)
-    return admin_padrao
+    conn = get_db_connection()
+    if not conn:
+        if os.path.exists(USUARIOS_FILE):
+            try:
+                with open(USUARIOS_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+        return [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT nome, login, senha, setor, role FROM usuarios ORDER BY id")
+            rows = cur.fetchall()
+            usuarios = [dict(r) for r in rows]
+            if not usuarios:
+                usuarios = [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
+            return usuarios
+    except Exception as e:
+        print(f"[DEBUG] Erro ao carregar usuarios: {e}", flush=True)
+        return [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
+    finally:
+        conn.close()
 
-def salvar_usuarios(users):
-    with open(USERS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
+def salvar_usuarios(usuarios):
+    conn = get_db_connection()
+    if not conn:
+        with open(USUARIOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(usuarios, f, ensure_ascii=False, indent=2)
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM usuarios WHERE login != 'admin'")
+            for u in usuarios:
+                if u.get("login") == "admin":
+                    continue
+                cur.execute(
+                    "INSERT INTO usuarios (nome, login, senha, setor, role) VALUES (%s, %s, %s, %s, %s) ON CONFLICT (login) DO UPDATE SET nome=%s, senha=%s, setor=%s, role=%s",
+                    (u["nome"], u["login"], u["senha"], u["setor"], u["role"], u["nome"], u["senha"], u["setor"], u["role"])
+                )
+    except Exception as e:
+        print(f"[DEBUG] Erro ao salvar usuarios: {e}", flush=True)
+    finally:
+        conn.close()
 
 def usuario_logado():
     if 'user' not in session:
@@ -92,20 +181,56 @@ SPREADSHEET_ID = "10rPC_-MxKm6o0L1SjHanXuKm0LjEIezjhoclNPlzpfc"
 METAS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'metas.json')
 _metas_lock = threading.Lock()
 
-def carregar_metas():
-    if os.path.exists(METAS_FILE):
-        try:
-            with open(METAS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            pass
-    default = {"2026-08": {"nome_mes": "Agosto 2026", "consolidada": 1005277.76, "vendedoras": {"SIMONE MOURA": 215000.00, "ISA": 241500.00, "ANA RUTH": 65000.00, "GP DISTRIBUIDORA": 100000.00}}}
-    salvar_metas(default)
-    return default
+def carregar_metas_produtos():
+    conn = get_db_connection()
+    if not conn:
+        if os.path.exists(METAS_PRODUTOS_FILE):
+            try:
+                with open(METAS_PRODUTOS_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+        default = {"2026-08": {"nome_mes": "Agosto 2026", "produtos": [], "venda_meta": 241500.00}}
+        salvar_metas_produtos(default)
+        return default
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT mes_ano, nome_mes, produtos, venda_meta FROM metas_produtos")
+            rows = cur.fetchall()
+            metas = {}
+            for r in rows:
+                metas[r["mes_ano"]] = {
+                    "nome_mes": r["nome_mes"] or "",
+                    "produtos": r["produtos"] or [],
+                    "venda_meta": float(r["venda_meta"] or 0)
+                }
+            return metas
+    except Exception as e:
+        print(f"[DEBUG] Erro ao carregar metas_produtos: {e}", flush=True)
+        return {}
+    finally:
+        conn.close()
 
-def salvar_metas(metas):
-    with open(METAS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(metas, f, ensure_ascii=False, indent=2)
+def salvar_metas_produtos(metas):
+    conn = get_db_connection()
+    if not conn:
+        with open(METAS_PRODUTOS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(metas, f, ensure_ascii=False, indent=2)
+        return
+    try:
+        with conn.cursor() as cur:
+            for mes, dados in metas.items():
+                cur.execute(
+                    """INSERT INTO metas_produtos (mes_ano, nome_mes, produtos, venda_meta)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (mes_ano) DO UPDATE SET nome_mes=%s, produtos=%s, venda_meta=%s""",
+                    (mes, dados.get("nome_mes",""), json.dumps(dados.get("produtos",[])), dados.get("venda_meta",0),
+                     dados.get("nome_mes",""), json.dumps(dados.get("produtos",[])), dados.get("venda_meta",0))
+                )
+    except Exception as e:
+        print(f"[DEBUG] Erro ao salvar metas_produtos: {e}", flush=True)
+    finally:
+        conn.close()
 
 def obter_metas_mes(mes_ano):
     metas = carregar_metas()
@@ -225,8 +350,8 @@ def processar_pedidos(pedidos, empresa):
     en = empresa["nome"]; dfield = empresa["data_field"]; procs = []
     for p in pedidos:
         if not isinstance(p, dict): continue
-        st = p.get("status_pedido", "")
-        if st not in STATUS_INCLUIDOS: continue
+        st = str(p.get("status_pedido", "") or "").strip()
+        if st.lower() not in {s.lower() for s in STATUS_INCLUIDOS}: continue
         try: vl = float(p.get("valor_total_nota","0") or "0")
         except: vl = 0.0
         vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome(p.get("vendedor_pedido",""))
@@ -586,7 +711,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="footer-section">Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial <strong>VHSYS</strong>, utilizado pela Real Acai Distribuidora.</div>
 <div class="footer-section">Sistema desenvolvido exclusivamente para: <strong>REAL ACAI DISTRIBUIDORA</strong></div>
 <hr class="footer-divider">
-<div class="footer-copy">(c) 2026 Real Acai Distribuidora - Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas - Desenvolvedor Autonomo - v1.0.0 - Ultima atualizacao: 15/08/2026</div>
+<div class="footer-copy">(c) 2026 Real Acai Distribuidora - Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas - Desenvolvedor Autonomo - v1.1.0 - Ultima atualizacao: 15/08/2026</div>
 </div>
 </div>
 <script>
@@ -867,3 +992,6 @@ def api_metas():
         _cache["timestamp"] = 0
         _cache["html"] = ""
     return jsonify({"status": "ok"})
+
+
+init_db()
