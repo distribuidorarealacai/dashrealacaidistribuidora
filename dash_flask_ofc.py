@@ -111,6 +111,27 @@ def obter_metas_mes(mes_ano):
     metas = carregar_metas()
     return metas.get(mes_ano, {"nome_mes": "", "consolidada": 0, "vendedoras": {}})
 
+METAS_PRODUTOS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'metas_produtos.json')
+
+def carregar_metas_produtos():
+    if os.path.exists(METAS_PRODUTOS_FILE):
+        try:
+            with open(METAS_PRODUTOS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            pass
+    default = {"2026-08": {"nome_mes": "Agosto 2026", "produtos": [], "venda_meta": 241500.00}}
+    salvar_metas_produtos(default)
+    return default
+
+def salvar_metas_produtos(metas):
+    with open(METAS_PRODUTOS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(metas, f, ensure_ascii=False, indent=2)
+
+def obter_metas_produtos_mes(mes_ano):
+    metas = carregar_metas_produtos()
+    return metas.get(mes_ano, {"nome_mes": "", "produtos": [], "venda_meta": 0})
+
 
 CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
 CACHE_TEMPO_SEGUNDOS = 1800
