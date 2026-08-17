@@ -707,35 +707,41 @@ def logo():
     pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(pixel, mimetype='image/png')
 
+
 @app.route('/')
 @requer_login
 def dashboard():
     u = usuario_logado()
+    html = None
     with _cache_lock:
-        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
+        if _cache["html"] and (time.time() - _cache["timestamp"]) &lt; CACHE_TEMPO_SEGUNDOS:
             html = _cache["html"]
-            html = html.replace("__USER_NAME__", u["nome"])
-            html = html.replace("__USER_SECTOR__", u["setor"])
-            html = html.replace("__USER_ROLE__", u["role"])
-            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-            return html
-    print("[DEBUG] Cache vazio, buscando dados...", flush=True)
-    try:
-        todos = buscar_dados_mes_atual()
-        ent = ler_dados_entregas()
-        html = gerar_dashboard_html(todos, ent)
-        html = html.replace("__USER_NAME__", u["nome"])
-        html = html.replace("__USER_SECTOR__", u["setor"])
-        html = html.replace("__USER_ROLE__", u["role"])
-        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-        with _cache_lock:
-            _cache["timestamp"] = time.time()
-            _cache["html"] = html
-        return html
-    except Exception as e:
-        return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
+    if not html:
+        print("[DEBUG] Cache vazio, buscando dados...", flush=True)
+        try:
+            todos = buscar_dados_mes_atual()
+            ent = ler_dados_entregas()
+            pc = get_produtos_cache()
+            prods = pc["data"] if pc["data"] else {}
+            html = gerar_dashboard_html(todos, ent, prods)
+            with _cache_lock:
+                _cache["timestamp"] = time.time()
+                _cache["html"] = html
+            if not pc["data"] and not pc["calculando"] and len(todos) > 0:
+                threading.Thread(target=buscar_produtos_background, args=(todos,), daemon=True).start()
+        except Exception as e:
+            print(f"[DEBUG] ERRO: {e}", flush=True)
+            return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
+    # Sempre fazer as substituições por usuário, mesmo com cache
+    html = html.replace("__USER_NAME__", u["nome"])
+    html = html.replace("__USER_SECTOR__", u["setor"])
+    html = html.replace("__USER_ROLE__", u["role"])
+    html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+    return html
 
-@app.route('/atualizar')
+
+
+
 def forcar_atualizacao():
     with _cache_lock:
         _cache["timestamp"] = 0
