@@ -614,7 +614,8 @@ window.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>'''
-    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)    return html
+    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)    
+    return html
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
