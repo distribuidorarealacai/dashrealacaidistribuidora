@@ -97,7 +97,7 @@ def carregar_usuarios():
                 pass
         return [{"nome":"Administrador Master","login":"admin","senha":"admin123","setor":"todas as abas","role":"admin_master"}]
     try:
-        with conn.cursor(with conn.cursor(row_factory=dict_row) as cur) as cur:
+        with conn.cursor(row_factory=dict_row) as cur:
             cur.execute("SELECT nome, login, senha, setor, role FROM usuarios ORDER BY id")
             rows = cur.fetchall()
             usuarios = [dict(r) for r in rows]
