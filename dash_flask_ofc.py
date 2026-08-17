@@ -10,6 +10,7 @@ import requests
 from flask import Flask, request, jsonify, send_file, Response
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'real_acai_2026_secret_key')
 
 import hashlib, secrets
 from flask import session, redirect, url_for
