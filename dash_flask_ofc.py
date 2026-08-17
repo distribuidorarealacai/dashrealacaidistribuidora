@@ -150,12 +150,10 @@ def salvar_usuarios(usuarios):
 def usuario_logado():
     if 'user' not in session:
         return None
-    users = carregar_usuarios()
+    usuarios = carregar_usuarios()
+    users = {u["login"]: u for u in usuarios}
     u = users.get(session['user'])
-    if not u:
-        session.clear()
-        return None
-    return {"username": session['user'], "nome": u["nome"], "role": u["role"], "setor": u["setor"]}
+    return u
 
 def requer_login(f):
     def wrap(*args, **kwargs):
