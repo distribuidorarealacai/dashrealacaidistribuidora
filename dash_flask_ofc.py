@@ -124,6 +124,63 @@ def carregar_usuarios():
     finally:
         conn.close()
 
+
+def carregar_metas():
+    conn = get_db_connection()
+    if not conn:
+        if os.path.exists(METAS_FILE):
+            try:
+                with open(METAS_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    try:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT mes_ano, nome_mes, vendedoras, consolidada FROM metas ORDER BY mes_ano")
+            rows = cur.fetchall()
+            metas = {}
+            for r in rows:
+                metas[r["mes_ano"]] = {
+                    "nome_mes": r.get("nome_mes", ""),
+                    "vendedoras": r.get("vendedoras", {}) if isinstance(r.get("vendedoras"), dict) else {},
+                    "consolidada": float(r.get("consolidada", 0) or 0)
+                }
+            return metas
+    except Exception as e:
+        print(f"[DEBUG] Erro ao carregar metas: {e}", flush=True)
+        return {}
+    finally:
+        conn.close()
+
+def carregar_metas_produtos():
+    conn = get_db_connection()
+    if not conn:
+        if os.path.exists(METAS_PRODUTOS_FILE):
+            try:
+                with open(METAS_PRODUTOS_FILE, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except:
+                pass
+        return {}
+    try:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute("SELECT mes_ano, nome_mes, produtos, venda_meta FROM metas_produtos ORDER BY mes_ano")
+            rows = cur.fetchall()
+            metas = {}
+            for r in rows:
+                metas[r["mes_ano"]] = {
+                    "nome_mes": r.get("nome_mes", ""),
+                    "produtos": r.get("produtos", []) if isinstance(r.get("produtos"), list) else [],
+                    "venda_meta": float(r.get("venda_meta", 0) or 0)
+                }
+            return metas
+    except Exception as e:
+        print(f"[DEBUG] Erro ao carregar metas_produtos: {e}", flush=True)
+        return {}
+    finally:
+        conn.close()
+
 def salvar_usuarios(usuarios):
     conn = get_db_connection()
     if not conn:
