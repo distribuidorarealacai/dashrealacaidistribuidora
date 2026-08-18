@@ -994,6 +994,12 @@ def admin_trocar_senha():
 
 
 @app.route('/logo')
+def serve_logo():
+    return send_file('Logo_Real_Distribuidora.png', mimetype='image/png')
+
+@app.route('/imagem-fachada')
+def imagem_fachada():
+    return send_file('imagem_frente.jpeg', mimetype='image/jpeg')
 def logo():
     caminhos = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
