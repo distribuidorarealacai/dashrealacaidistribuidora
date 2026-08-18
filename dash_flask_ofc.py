@@ -725,26 +725,27 @@ def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
         if _atualizando_cache and not forcar:
             return
         _atualizando_cache = True
-    
+
     try:
         hoje = date.today()
         # Busca o mês atual
         di = hoje.replace(day=1).isoformat()
         df = hoje.isoformat()
-        
+
         print(f"[DEBUG] Buscando dados de {di} a {df}", flush=True)
-        
+
         todos_pedidos = []
         for emp in EMPRESAS:
             try:
                 headers = make_headers(emp)
-                pedidos = listar_pedidos_periodo(di, df, emp, headers)
+                # CORRIGIDO: listar_pedidos_periodo_rapido (nome real da função)
+                pedidos = listar_pedidos_periodo_rapido(di, df, emp, headers)
                 processados = processar_pedidos(pedidos, emp)
                 todos_pedidos.extend(processados)
                 print(f"[DEBUG] {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
             except Exception as e:
                 print(f"[DEBUG] Erro empresa {emp.get('nome','?')}: {e}", flush=True)
-        
+
         # FALLBACK: se mês atual não tem dados, busca 3 meses
         if not todos_pedidos:
             print("[DEBUG] Sem dados no mes atual, buscando 3 meses...", flush=True)
@@ -752,30 +753,31 @@ def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
             for emp in EMPRESAS:
                 try:
                     headers = make_headers(emp)
-                    pedidos = listar_pedidos_periodo(di, df, emp, headers)
+                    # CORRIGIDO: listar_pedidos_periodo_rapido (nome real da função)
+                    pedidos = listar_pedidos_periodo_rapido(di, df, emp, headers)
                     processados = processar_pedidos(pedidos, emp)
                     todos_pedidos.extend(processados)
                     print(f"[DEBUG] FALLBACK {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
                 except Exception as e:
                     print(f"[DEBUG] Erro fallback {emp.get('nome','?')}: {e}", flush=True)
-        
+
         entregas = []
         try:
             entregas = ler_dados_entregas()
             print(f"[DEBUG] Entregas: {len(entregas)}", flush=True)
         except Exception as e:
             print(f"[DEBUG] Erro entregas: {e}", flush=True)
-        
+
         produtos = []
-        
+
         html = gerar_dashboard_html(todos_pedidos, entregas, produtos)
-        
+
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
             _cache["periodo_meses"] = meses
             _atualizando_cache = False
-        
+
         print(f"[DEBUG] Cache atualizado: {len(todos_pedidos)} pedidos totais", flush=True)
     except Exception as e:
         print(f"[DEBUG] Erro cache background: {e}", flush=True)
