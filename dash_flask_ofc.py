@@ -990,20 +990,24 @@ def admin_trocar_senha():
         salvar_usuarios(users)
     return redirect('/admin/usuarios?ok=senha')
 
-
-
-
 import os
+import glob
+
+def encontrar_arquivo(nome):
+    """Busca o arquivo em todo o projeto"""
+    for raiz, dirs, arquivos in os.walk('.'):
+        if nome in arquivos:
+            return os.path.join(raiz, nome)
+    return nome
 
 @app.route('/logo')
 def serve_logo():
-    caminho = os.path.join(os.path.dirname(__file__), 'Logo_Real_Distribuidora.png')
-    return send_file(caminho, mimetype='image/png')
+    return send_file(encontrar_arquivo('Logo_Real_Distribuidora.png'), mimetype='image/png')
 
 @app.route('/imagem-fachada')
 def imagem_fachada():
-    caminho = os.path.join(os.path.dirname(__file__), 'imagem_frente.jpg')
-    return send_file(caminho, mimetype='image/jpeg')
+    return send_file(encontrar_arquivo('imagem_frente.jpg'), mimetype='image/jpeg')
+
 
 
 
