@@ -720,7 +720,7 @@ import threading
 _atualizando_cache = False
 
 
-def listar_pedidos_periodo_rapido(di, df, empresa, headers):
+def listar_pedidos_periodo(di, df, empresa, headers):
     ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
     todos = []; offset = 0; limit = 250; pag = 1
     while pag <= 20:  # LIMITE de 20 páginas (5000 registros)
@@ -771,8 +771,8 @@ def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
         for emp in EMPRESAS:
             try:
                 headers = make_headers(emp)
-                # CORRIGIDO: listar_pedidos_periodo_rapido (nome real da função)
-                pedidos = listar_pedidos_periodo_rapido(di, df, emp, headers)
+                # CORRIGIDO: listar_pedidos_periodo_ real da função)
+                pedidos = listar_pedidos_periodo(di, df, emp, headers)
                 processados = processar_pedidos(pedidos, emp)
                 todos_pedidos.extend(processados)
                 print(f"[DEBUG] {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
@@ -787,7 +787,7 @@ def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
                 try:
                     headers = make_headers(emp)
                     # CORRIGIDO: listar_pedidos_periodo_rapido (nome real da função)
-                    pedidos = listar_pedidos_periodo_rapido(di, df, emp, headers)
+                    pedidos = listar_pedidos_periodo(di, df, emp, headers)
                     processados = processar_pedidos(pedidos, emp)
                     todos_pedidos.extend(processados)
                     print(f"[DEBUG] FALLBACK {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
