@@ -993,32 +993,17 @@ def admin_trocar_senha():
 
 
 
+import os
+
 @app.route('/logo')
-
-def logo():
-    caminhos = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
-        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
-        'Logo_Real_Distribuidora.png',
-        '/app/Logo_Real_Distribuidora.png',
-    ]
-    for c in caminhos:
-        if os.path.isfile(c):
-            return send_file(c, mimetype='image/png')
-    matches = glob.glob('**/*ogo*.png', recursive=True)
-    if matches:
-        return send_file(matches[0], mimetype='image/png')
-    pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
-    return Response(pixel, mimetype='image/png')
-
-_produtos_cache = {"timestamp": 0, "data": {}, "calculando": False}
-_produtos_lock = threading.Lock()
-
+def serve_logo():
+    caminho = os.path.join(os.path.dirname(__file__), 'Logo_Real_Distribuidora.png')
+    return send_file(caminho, mimetype='image/png')
 
 @app.route('/imagem-fachada')
 def imagem_fachada():
-    return send_file('imagem_frente.jpg', mimetype='image/jpeg')
-
+    caminho = os.path.join(os.path.dirname(__file__), 'imagem_frente.jpg')
+    return send_file(caminho, mimetype='image/jpeg')
 
 
 
