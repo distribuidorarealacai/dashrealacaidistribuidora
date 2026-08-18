@@ -911,7 +911,7 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)    
     return html
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['POST'])
 def login():
     if request.method == 'POST':
         user = request.form.get('username', '').strip()
@@ -922,7 +922,7 @@ def login():
         
         if u and u["senha"] == senha:
             session['user'] = user
-            return redirect('/')
+            return redirect('/dashboard')
         return login_page_html("Usuario ou senha invalidos.")
     return login_page_html()
 
@@ -992,20 +992,28 @@ def admin_trocar_senha():
 
 from flask import send_from_directory
 
+from flask import Response
+
 @app.route('/logo')
 def serve_logo():
-    return send_from_directory(app.root_path, 'Logo_Real_Distribuidora.png')
-
+    try:
+        with open('Logo_Real_Distribuidora.png', 'rb') as f:
+            return Response(f.read(), mimetype='image/png')
+    except FileNotFoundError:
+        print("[DEBUG] Logo nao encontrado no diretorio", flush=True)
+        return "Not found", 404
 
 @app.route('/imagem-fachada')
 def imagem_fachada():
-    import os
-    caminho = os.path.join(app.root_path, 'imagem_frente.jpg')
-    print(f"[DEBUG] Procurando imagem em: {caminho}", flush=True)
-    print(f"[DEBUG] Arquivo existe: {os.path.exists(caminho)}", flush=True)
-    print(f"[DEBUG] Arquivos no diretorio: {os.listdir(app.root_path)}", flush=True)
-    return send_from_directory(app.root_path, 'imagem_frente.jpg')
+    try:
+        with open('imagem_frente.jpg', 'rb') as f:
+            return Response(f.read(), mimetype='image/jpeg')
+    except FileNotFoundError:
+        print("[DEBUG] Fachada nao encontrada no diretorio", flush=True)
+        return "Not found", 404
 
+
+    
 def get_produtos_cache():
     with _produtos_lock:
         return dict(_produtos_cache)
