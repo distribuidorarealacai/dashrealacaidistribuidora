@@ -1176,7 +1176,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 <!-- HEADER -->
 <div class="header">
 <div class="logo">
-<img src="/imagem-fachada" alt="Real Acai">
+<img src="/logo" alt="Real Acai">
 <span>REAL AÇAÍ DISTRIBUIDORA</span>
 </div>
 <nav>
