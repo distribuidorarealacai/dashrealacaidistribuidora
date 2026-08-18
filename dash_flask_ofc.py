@@ -1165,7 +1165,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 <!-- HEADER -->
 <div class="header">
 <div class="logo">
-<img src="WhatsApp Image 2026-08-18 at 09.16.29.jpeg" alt="Real Açai Distribuidora">
+<img src="imagem_frente.jpeg" alt="Real Açai Distribuidora">
 <span>REAL AÇAÍ DISTRIBUIDORA</span>
 </div>
 <nav>
