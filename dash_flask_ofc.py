@@ -990,26 +990,21 @@ def admin_trocar_senha():
         salvar_usuarios(users)
     return redirect('/admin/usuarios?ok=senha')
 
-import os
-import glob
-
-def encontrar_arquivo(nome):
-    """Busca o arquivo em todo o projeto"""
-    for raiz, dirs, arquivos in os.walk('.'):
-        if nome in arquivos:
-            return os.path.join(raiz, nome)
-    return nome
+from flask import send_from_directory
 
 @app.route('/logo')
 def serve_logo():
-    return send_file(encontrar_arquivo('Logo_Real_Distribuidora.png'), mimetype='image/png')
+    return send_from_directory(app.root_path, 'Logo_Real_Distribuidora.png')
+
 
 @app.route('/imagem-fachada')
 def imagem_fachada():
-    return send_file(encontrar_arquivo('imagem_frente.jpg'), mimetype='image/jpeg')
-
-
-
+    import os
+    caminho = os.path.join(app.root_path, 'imagem_frente.jpg')
+    print(f"[DEBUG] Procurando imagem em: {caminho}", flush=True)
+    print(f"[DEBUG] Arquivo existe: {os.path.exists(caminho)}", flush=True)
+    print(f"[DEBUG] Arquivos no diretorio: {os.listdir(app.root_path)}", flush=True)
+    return send_from_directory(app.root_path, 'imagem_frente.jpg')
 
 def get_produtos_cache():
     with _produtos_lock:
