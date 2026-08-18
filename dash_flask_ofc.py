@@ -463,12 +463,12 @@ def ler_dados_entregas():
     except: return []
     return entregas
 
-def listar_pedidos_periodo(di, df, empresa, headers):
+def listar_pedidos_periodo_rapido(di, df, empresa, headers):
     ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
     todos = []; offset = 0; limit = 250; pag = 1
-    while pag <= 200:
+    while pag <= 20:  # LIMITE de 20 páginas (5000 registros) em vez de 200
         params = {"limit": limit, "offset": offset, "order": ofield, "sort": "Desc"}
-        try: resp = requests.get(f"{BASE_URL}{ep}", headers=headers, params=params, timeout=30)
+        try: resp = requests.get(f"{BASE_URL}{ep}", headers=headers, params=params, timeout=15)
         except: break
         if resp.status_code != 200: break
         try: payload = resp.json()
@@ -760,7 +760,7 @@ def atualizar_cache_background(meses=1, forcar=False):
             for emp in EMPRESAS:
                 try:
                     headers = make_headers(emp)
-                    pedidos = listar_pedidos_periodo(di, df, emp, headers)
+                    pedidos = listar_pedidos_periodo_rapido(di, df, emp, headers)
                     processados = processar_pedidos(pedidos, emp)
                     todos_pedidos.extend(processados)
                     print(f"[DEBUG] FALLBACK {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
@@ -838,7 +838,7 @@ h2{margin-bottom:10px} p{opacity:0.8}
 <p>Buscando dados do mes atual. Aguarde.</p>
 </div>
 <script>
-setTimeout(function(){ window.location.reload(); }, 15000);
+setTimeout(function(){ window.location.reload(); }, 20000);
 </script>
 </body></html>'''
 
