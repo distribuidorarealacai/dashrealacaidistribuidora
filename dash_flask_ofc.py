@@ -332,6 +332,32 @@ def carregar_metas_produtos():
     finally:
         conn.close()
 
+
+def salvar_metas(metas):
+    conn = get_db_connection()
+    if not conn:
+        with open(METAS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(metas, f, ensure_ascii=False, indent=2)
+        return
+    try:
+        with conn.cursor() as cur:
+            for mes_ano, dados in metas.items():
+                nome_mes = dados.get("nome_mes", "")
+                vendedoras = dados.get("vendedoras", {})
+                consolidada = float(dados.get("consolidada", 0) or 0)
+                cur.execute(
+                    """INSERT INTO metas (mes_ano, nome_mes, vendedoras, consolidada)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (mes_ano) DO UPDATE SET nome_mes=%s, vendedoras=%s, consolidada=%s""",
+                    (mes_ano, nome_mes, json.dumps(vendedoras), consolidada,
+                     nome_mes, json.dumps(vendedoras), consolidada)
+                )
+        print(f"[DEBUG] {len(metas)} metas salvas no banco", flush=True)
+    except Exception as e:
+        print(f"[DEBUG] Erro ao salvar metas: {e}", flush=True)
+    finally:
+        conn.close()        
+
 def salvar_metas_produtos(metas):
     conn = get_db_connection()
     if not conn:
@@ -601,9 +627,11 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </body>
 </html>'''
 
+
 def admin_page_html(users):
     linhas = ''
-    for uname, u in sorted(users.items()):
+    for u in sorted(users, key=lambda x: x.get("login", "")):
+        uname = u["login"]
         setor_label = SETORES.get(u["setor"], u["setor"])
         role_label = {"admin_master": "Admin Master", "admin": "Admin (Visualizador)", "user": "Colaborador"}.get(u["role"], u["role"])
         is_master = u["role"] == "admin_master"
@@ -688,7 +716,6 @@ td.vn{{font-weight:600}}
 </div>
 </body>
 </html>'''
-
 
 
 def gerar_dashboard_html(pedidos, entregas, produtos):
