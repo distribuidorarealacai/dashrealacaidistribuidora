@@ -1013,14 +1013,13 @@ def logo():
 _produtos_cache = {"timestamp": 0, "data": {}, "calculando": False}
 _produtos_lock = threading.Lock()
 
-@app.route('/fachada')
-def fachada():
+
+@app.route('/imagem-fachada')
+def imagem_fachada():
     return send_file('WhatsApp Image 2026-08-18 at 09.16.29.jpeg', mimetype='image/jpeg')
 
 
-@app.route('/fachada')
-def fachada():
-    return send_file('WhatsApp Image 2026-08-18 at 09.16.29.jpeg', mimetype='image/jpeg')
+
 
 def get_produtos_cache():
     with _produtos_lock:
