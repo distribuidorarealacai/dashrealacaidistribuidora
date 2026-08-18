@@ -1013,6 +1013,11 @@ def logo():
 _produtos_cache = {"timestamp": 0, "data": {}, "calculando": False}
 _produtos_lock = threading.Lock()
 
+
+@app.route('/fachada')
+def fachada():
+    return send_file('WhatsApp Image 2026-08-18 at 09.16.29.jpeg', mimetype='image/jpeg')
+
 def get_produtos_cache():
     with _produtos_lock:
         return dict(_produtos_cache)
@@ -1035,39 +1040,330 @@ def buscar_produtos_background(pedidos):
             _produtos_cache["calculando"] = False
 
 
+LANDING_PAGE_HTML = '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Açaí Distribuidora - Qualidade que você conhece</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a1a2e;scroll-behavior:smooth}
+
+/* HEADER */
+.header{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(20,10,30,0.95);backdrop-filter:blur(10px);padding:10px 40px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,0.3)}
+.header .logo{display:flex;align-items:center;gap:12px}
+.header .logo img{height:42px;border-radius:8px}
+.header .logo span{color:#fff;font-size:16px;font-weight:700;letter-spacing:0.5px}
+.header nav{display:flex;gap:24px}
+.header nav a{color:#c4b5fd;text-decoration:none;font-size:14px;font-weight:500;transition:color .2s;position:relative}
+.header nav a:hover{color:#fff}
+.header nav a::after{content:"";position:absolute;bottom:-4px;left:0;width:0;height:2px;background:#a855f7;transition:width .3s}
+.header nav a:hover::after{width:100%}
+.header .btn-login{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:8px 22px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;transition:transform .2s,box-shadow .2s}
+.header .btn-login:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(168,85,247,0.4)}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(135deg,rgba(20,10,30,0.88),rgba(76,29,149,0.75)),url('/logo') center/cover no-repeat fixed}
+.hero-content{text-align:center;max-width:750px;padding:0 20px}
+.hero-content .badge-top{display:inline-block;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:20px}
+.hero-content h1{color:#fff;font-size:44px;font-weight:800;line-height:1.2;margin-bottom:18px;text-shadow:0 2px 20px rgba(0,0,0,0.5)}
+.hero-content h1 span{color:#a855f7}
+.hero-content p{color:#e9d5ff;font-size:18px;margin-bottom:32px;line-height:1.7}
+.hero-content .btn-pedido{background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;padding:16px 42px;border-radius:12px;text-decoration:none;font-size:18px;font-weight:700;display:inline-block;transition:transform .2s,box-shadow .2s;box-shadow:0 4px 15px rgba(22,163,74,0.3)}
+.hero-content .btn-pedido:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(22,163,74,0.5)}
+.hero-content .verse{margin-top:28px;color:#a78bfa;font-size:14px;font-style:italic;opacity:0.8}
+
+/* DIFERENCIAIS */
+.diferenciais{background:linear-gradient(180deg,#0f0a1a,#1a1030);padding:50px 40px;display:flex;justify-content:center;gap:40px;flex-wrap:wrap}
+.diff-card{text-align:center;max-width:220px}
+.diff-card .icon{font-size:40px;margin-bottom:14px}
+.diff-card h3{font-size:15px;font-weight:700;margin-bottom:6px;color:#fff}
+.diff-card p{font-size:13px;color:#a78bfa;line-height:1.5}
+
+/* SEÇÕES */
+.section{padding:70px 40px;max-width:1100px;margin:0 auto}
+.section h2{font-size:30px;font-weight:700;margin-bottom:30px;text-align:center;color:#1a1a2e}
+.section h2 span{color:#7c3aed}
+.section-gray{background:#faf8ff}
+
+/* HISTÓRIA */
+.historia-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:50px;align-items:center}
+.historia-grid .img-box{border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(76,29,149,0.2);background:linear-gradient(135deg,#2d1b4e,#4c1d95);height:350px;display:flex;align-items:center;justify-content:center;position:relative}
+.historia-grid .img-box img{width:100%;height:100%;object-fit:cover}
+.historia-grid .img-box .verse-overlay{position:absolute;bottom:0;left:0;right:0;background:rgba(20,10,30,0.85);color:#c4b5fd;padding:12px;text-align:center;font-size:13px;font-style:italic}
+.historia-grid .texto p{font-size:16px;line-height:1.9;color:#475569;margin-bottom:16px}
+.historia-grid .texto p strong{color:#7c3aed}
+.historia-grid .texto .destaque{font-size:20px;font-weight:700;color:#7c3aed;margin-top:20px;text-align:center;padding:16px;background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(124,58,237,0.05));border-radius:12px;border-left:4px solid #7c3aed}
+
+/* VENDEDORAS */
+.vendedoras-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:24px;margin-top:20px}
+.vendedora-card{background:#fff;border-radius:16px;padding:28px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,0.06);transition:transform .2s,box-shadow .2s;border:2px solid transparent}
+.vendedora-card:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(124,58,237,0.15);border-color:#e9d5ff}
+.vendedora-card .avatar{width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);margin:0 auto 16px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700}
+.vendedora-card h4{font-size:18px;font-weight:700;margin-bottom:4px;color:#1a1a2e}
+.vendedora-card .role{font-size:13px;color:#7c3aed;font-weight:600;margin-bottom:12px}
+.vendedora-card .telefone{font-size:15px;color:#475569;margin-bottom:16px}
+.vendedora-card .btn-wpp{display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:10px 22px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;transition:background .2s}
+.vendedora-card .btn-wpp:hover{background:#1da851}
+
+/* FAÇA PEDIDO */
+.pedido-section{background:linear-gradient(135deg,#1a1030,#4c1d95);color:#fff;padding:80px 40px;text-align:center}
+.pedido-section h2{color:#fff}
+.pedido-section h2 span{color:#c4b5fd}
+.pedido-section .sub{font-size:17px;margin-bottom:30px;opacity:0.9;max-width:600px;margin-left:auto;margin-right:auto}
+.pedido-section .btn-wpp-grande{display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#fff;padding:16px 40px;border-radius:12px;text-decoration:none;font-size:18px;font-weight:700;transition:transform .2s}
+.pedido-section .btn-wpp-grande:hover{transform:translateY(-2px)}
+.pedido-section .ou{margin-top:20px;font-size:14px;color:#c4b5fd}
+.pedido-section .ou a{color:#fff;text-decoration:underline}
+
+/* CONTATO */
+.contato-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:50px;align-items:start}
+.contato-info .item{display:flex;align-items:start;gap:14px;margin-bottom:20px}
+.contato-info .item .ic{font-size:24px;flex-shrink:0;margin-top:2px}
+.contato-info .item strong{display:block;font-size:14px;color:#7c3aed;text-transform:uppercase;font-weight:700;margin-bottom:4px}
+.contato-info .item span{font-size:15px;color:#475569;line-height:1.6}
+.contato-info .item a{color:#475569;text-decoration:none}
+.contato-info .item a:hover{color:#7c3aed}
+.contato-info .social{display:flex;gap:12px;margin-top:20px}
+.contato-info .social a{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;text-decoration:none;font-size:20px;transition:transform .2s}
+.contato-info .social a:hover{transform:translateY(-3px)}
+.qr-box{text-align:center}
+.qr-box .qr-placeholder{width:200px;height:200px;margin:0 auto 16px;background:#f3f0ff;border-radius:16px;display:flex;align-items:center;justify-content:center;border:3px solid #7c3aed}
+.qr-box .qr-placeholder svg{width:100%;height:100%;padding:10px}
+.qr-box p{font-size:14px;color:#64748b}
+
+/* RODAPÉ */
+.rodape{background:#0a0510;color:#94a3b8;padding:40px 40px 20px}
+.rodape-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:40px;margin-bottom:30px}
+.rodape-col h5{color:#fff;font-size:15px;font-weight:700;margin-bottom:14px}
+.rodape-col p,.rodape-col a{font-size:13px;color:#94a3b8;text-decoration:none;line-height:1.8;display:block}
+.rodape-col a:hover{color:#c4b5fd}
+.rodape-bottom{max-width:1100px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.08);padding-top:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.rodape-bottom .copy{font-size:12px;color:#64748b}
+.rodape-bottom .dev{font-size:12px;color:#64748b}
+.rodape-bottom .dev strong{color:#a78bfa}
+
+/* MOBILE */
+@media(max-width:768px){
+.header{padding:8px 16px}
+.header nav{display:none}
+.header .logo span{font-size:14px}
+.hero-content h1{font-size:28px}
+.hero-content p{font-size:15px}
+.historia-grid,.contato-grid{grid-template-columns:1fr}
+.diferenciais{gap:20px}
+.rodape-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+<div class="logo">
+<img src="/logo" alt="Real Açai Distribuidora">
+<span>REAL AÇAÍ DISTRIBUIDORA</span>
+</div>
+<nav>
+<a href="#inicio">Início</a>
+<a href="#historia">Nossa História</a>
+<a href="#vendedoras">Vendedoras</a>
+<a href="#pedido">Faça seu Pedido</a>
+<a href="#contato">Contato</a>
+</nav>
+<a href="/login" class="btn-login">Login / Dashboard</a>
+</div>
+
+<!-- HERO -->
+<div class="hero" id="inicio">
+<div class="hero-content">
+<span class="badge-top">🍇 Tradição em cada detalhe</span>
+<h1>A tradição e qualidade que você conhece,<br><span>agora também online</span></h1>
+<p>Há mais de 5 anos levando os melhores produtos para sua família.<br>Faça seu pedido de onde estiver, receba com agilidade.</p>
+<a href="#pedido" class="btn-pedido">Fazer Pedido</a>
+<div class="verse">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
+</div>
+</div>
+
+<!-- DIFERENCIAIS -->
+<div class="diferenciais">
+<div class="diff-card"><div class="icon">⚡</div><h3>Entrega Rápida</h3><p>Agilidade na entrega dos seus pedidos</p></div>
+<div class="diff-card"><div class="icon">✅</div><h3>Qualidade Garantida</h3><p>Produtos selecionados com padrão de excelência</p></div>
+<div class="diff-card"><div class="icon">🏭</div><h3>Indústria Própria</h3><p>Desenvolvemos nossos próprios gelatos e açaís</p></div>
+<div class="diff-card"><div class="icon">🤝</div><h3>Atendimento Personalizado</h3><p>Equipe dedicada para te atender com cuidado</p></div>
+</div>
+
+<!-- NOSSA HISTÓRIA -->
+<div class="section" id="historia">
+<h2>Conheça um pouco de <span>nossa história</span></h2>
+<div class="historia-grid">
+<div class="img-box">
+<img src="/logo" alt="Real Açai Distribuidora">
+<div class="verse-overlay">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
+</div>
+<div class="texto">
+<p>A <strong>Real Açaí Distribuidora</strong> nasceu de um sonho que começou há mais de 5 anos, quando inauguramos nossa primeira loja de self-service de açaí no bairro Cristo Redentor, pioneira nesse modelo de comércio na região.</p>
+<p>O sonho cresceu e hoje contamos com <strong>três lojas ativas</strong> e uma <strong>indústria própria</strong>, onde desenvolvemos nossos gelatos e nossas melhores linhas de açaí.</p>
+<p>Nossa história é construída com muito trabalho, dedicação e compromisso com a qualidade. Buscamos sempre os melhores produtos e matérias-primas do mercado para oferecer a você, nosso cliente, uma experiência única em sabor e qualidade.</p>
+<div class="destaque">Açaí tem muitos, mas Real, só aqui! 🍇</div>
+</div>
+</div>
+</div>
+
+<!-- VENDEDORAS -->
+<div class="section section-gray" id="vendedoras">
+<h2>Nossas <span>Consultoras de Vendas</span></h2>
+<div class="vendedoras-grid">
+<div class="vendedora-card">
+<div class="avatar">AR</div>
+<h4>Ana Ruth</h4>
+<div class="role">Consultora de Vendas</div>
+<div class="telefone">(85) 9 9288-5598</div>
+<a href="https://wa.me/5585992885598?text=Olá!%20Gostaria%20de%20fazer%20um%20pedido" target="_blank" class="btn-wpp">💬 Pedir pelo WhatsApp</a>
+</div>
+<div class="vendedora-card">
+<div class="avatar">IL</div>
+<h4>Isa Lima</h4>
+<div class="role">Consultora de Vendas</div>
+<div class="telefone">(85) 9 9187-3115</div>
+<a href="https://wa.me/5585991873115?text=Olá!%20Gostaria%20de%20fazer%20um%20pedido" target="_blank" class="btn-wpp">💬 Pedir pelo WhatsApp</a>
+</div>
+<div class="vendedora-card">
+<div class="avatar">SM</div>
+<h4>Simone Moura</h4>
+<div class="role">Consultora de Vendas</div>
+<div class="telefone">(85) 9 8524-2498</div>
+<a href="https://wa.me/5585985242498?text=Olá!%20Gostaria%20de%20fazer%20um%20pedido" target="_blank" class="btn-wpp">💬 Pedir pelo WhatsApp</a>
+</div>
+</div>
+</div>
+
+<!-- FAÇA SEU PEDIDO -->
+<div class="pedido-section" id="pedido">
+<h2>Faça seu <span>Pedido</span></h2>
+<p class="sub">Escolha sua consultora preferida acima ou faça seu pedido direto pelo WhatsApp geral. É rápido e prático!</p>
+<a href="https://wa.me/5585992885598?text=Olá!%20Gostaria%20de%20fazer%20um%20pedido" target="_blank" class="btn-wpp-grande">💬 Fazer Pedido Agora</a>
+<div class="ou">Prefere acessar o sistema? <a href="/login">Entre no Dashboard →</a></div>
+</div>
+
+<!-- CONTATO -->
+<div class="section" id="contato">
+<h2>Contato e <span>Localização</span></h2>
+<div class="contato-grid">
+<div class="contato-info">
+<div class="item">
+<div class="ic">📍</div>
+<div><strong>Endereço</strong><span>Av. Pres. Castelo Branco, 3833<br>Próximo à UPA e a Gerdoi<br>Fortaleza - CE</span></div>
+</div>
+<div class="item">
+<div class="ic">📞</div>
+<div><strong>Telefones</strong><span>Ana Ruth: (85) 9 9288-5598<br>Isa Lima: (85) 9 9187-3115<br>Simone Moura: (85) 9 8524-2498</span></div>
+</div>
+<div class="item">
+<div class="ic">✉️</div>
+<div><strong>E-mail</strong><span><a href="mailto:financeiro@realacaidistribuidora.com.br">financeiro@realacaidistribuidora.com.br</a></span></div>
+</div>
+<div class="item">
+<div class="ic">📸</div>
+<div><strong>Instagram</strong><span><a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a></span></div>
+</div>
+<div class="item">
+<div class="ic">🕒</div>
+<div><strong>Horário</strong><span>Seg a Sex: 08h às 18h<br>Sábado: 08h às 12h</span></div>
+</div>
+<div class="social">
+<a href="https://wa.me/5585992885598" target="_blank" title="WhatsApp">💬</a>
+<a href="https://instagram.com/realacaidistribuidora" target="_blank" title="Instagram">📷</a>
+<a href="mailto:financeiro@realacaidistribuidora.com.br" title="E-mail">✉️</a>
+</div>
+</div>
+<div class="qr-box">
+<div class="qr-placeholder">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#fff"/>
+<!-- QR Code simulado -->
+<g fill="#1a1a2e">
+<rect x="5" y="5" width="25" height="25"/>
+<rect x="10" y="10" width="15" height="15" fill="#fff"/>
+<rect x="12" y="12" width="11" height="11"/>
+<rect x="70" y="5" width="25" height="25"/>
+<rect x="75" y="10" width="15" height="15" fill="#fff"/>
+<rect x="77" y="12" width="11" height="11"/>
+<rect x="5" y="70" width="25" height="25"/>
+<rect x="10" y="75" width="15" height="15" fill="#fff"/>
+<rect x="12" y="77" width="11" height="11"/>
+<rect x="35" y="5" width="5" height="5"/>
+<rect x="45" y="5" width="5" height="5"/>
+<rect x="55" y="10" width="5" height="5"/>
+<rect x="35" y="15" width="10" height="5"/>
+<rect x="50" y="15" width="5" height="10"/>
+<rect x="40" y="25" width="5" height="5"/>
+<rect x="35" y="35" width="5" height="5"/>
+<rect x="45" y="35" width="10" height="5"/>
+<rect x="60" y="35" width="5" height="10"/>
+<rect x="70" y="40" width="5" height="5"/>
+<rect x="80" y="40" width="10" height="5"/>
+<rect x="35" y="45" width="5" height="10"/>
+<rect x="45" y="50" width="5" height="5"/>
+<rect x="55" y="45" width="10" height="10"/>
+<rect x="70" y="55" width="5" height="5"/>
+<rect x="80" y="55" width="5" height="10"/>
+<rect x="40" y="60" width="5" height="5"/>
+<rect x="50" y="65" width="10" height="5"/>
+<rect x="65" y="65" width="5" height="10"/>
+<rect x="75" y="70" width="5" height="5"/>
+<rect x="85" y="75" width="5" height="5"/>
+<rect x="35" y="75" width="5" height="10"/>
+<rect x="45" y="80" width="5" height="5"/>
+<rect x="55" y="85" width="5" height="5"/>
+<rect x="65" y="85" width="10" height="5"/>
+<rect x="80" y="85" width="10" height="5"/>
+</g>
+</svg>
+</div>
+<p>Escaneie para acessar nosso site</p>
+</div>
+</div>
+</div>
+
+<!-- RODAPÉ -->
+<div class="rodape">
+<div class="rodape-grid">
+<div class="rodape-col">
+<h5>Real Açaí Distribuidora</h5>
+<p>Açaí tem muitos, mas Real, só aqui!</p>
+<p style="margin-top:8px;font-style:italic;color:#a78bfa">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
+</div>
+<div class="rodape-col">
+<h5>Links Rápidos</h5>
+<a href="#inicio">Início</a>
+<a href="#historia">Nossa História</a>
+<a href="#vendedoras">Vendedoras</a>
+<a href="#pedido">Faça seu Pedido</a>
+<a href="#contato">Contato</a>
+<a href="/login">Dashboard</a>
+</div>
+<div class="rodape-col">
+<h5>Contato</h5>
+<p>Av. Pres. Castelo Branco, 3833</p>
+<p>Fortaleza - CE</p>
+<p>financeiro@realacaidistribuidora.com.br</p>
+<a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a>
+</div>
+</div>
+<div class="rodape-bottom">
+<div class="copy">© 2026 Real Açaí Distribuidora. Todos os direitos reservados.</div>
+<div class="dev">Desenvolvido por <strong>[SEU NOME/AQUI]</strong></div>
+</div>
+</div>
+
+</body>
+</html>'''
+
 @app.route('/')
-@requer_login
-def dashboard():
-    u = usuario_logado()
-    html = None
-    with _cache_lock:
-        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
-            html = _cache["html"]
-    if not html:
-        print("[DEBUG] Cache vazio, buscando dados...", flush=True)
-        try:
-            todos = buscar_dados_mes_atual()
-            ent = ler_dados_entregas()
-            pc = get_produtos_cache()
-            prods = pc["data"] if pc["data"] else {}
-            html = gerar_dashboard_html(todos, ent, prods)
-            with _cache_lock:
-                _cache["timestamp"] = time.time()
-                _cache["html"] = html
-            if not pc["data"] and not pc["calculando"] and len(todos) > 0:
-                threading.Thread(target=buscar_produtos_background, args=(todos,), daemon=True).start()
-        except Exception as e:
-            print(f"[DEBUG] ERRO: {e}", flush=True)
-            return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
-    # Sempre fazer as substituições por usuário, mesmo com cache
-    html = html.replace("__USER_NAME__", u["nome"])
-    html = html.replace("__USER_SECTOR__", u["setor"])
-    html = html.replace("__USER_ROLE__", u["role"])
-    html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-    return html
-
-
-
+def landing_page():
+    return LANDING_PAGE_HTML
 
 def forcar_atualizacao():
     with _cache_lock:
