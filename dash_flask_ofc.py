@@ -818,7 +818,9 @@ def dashboard():
         if (agora - ts) > CACHE_TEMPO_SEGUNDOS and not _atualizando:
             threading.Thread(target=atualizar_cache_background, args=(1,), daemon=True).start()
         return html_cache
-    nome_user = session.get('user', {}).get('nome', 'Usuario') if session.get('user') else 'Usuario'
+    usr = usuario_logado()
+    nome_user = usr.get('nome', 'Usuario') if usr else 'Usuario'
+        if session.get('user') else 'Usuario'
     threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
     
    
