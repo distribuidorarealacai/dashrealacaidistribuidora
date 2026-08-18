@@ -795,34 +795,17 @@ def usuario_logado():
 def dashboard():
     if not session.get('user'):
         return redirect('/login')
-    
-    # Captura o nome AQUI (dentro do contexto da requisição - funciona)
-    u = usuario_logado()
-    nome_user = u.get('nome', 'Usuario') if u else 'Usuario'
-    
-    # Passa o nome para a thread
-    threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
-    
-    with _cache_lock:
-        ts = _cache.get("timestamp", 0)
-        html_cache = _cache.get("html", "")
-        _atualizando = _atualizando_cache
-        periodo_cache = _cache.get("periodo_meses", 0)
-    
-    agora = time.time()
-    
-    # Se tem cache, retorna instantaneamente
-    if html_cache:
-        if busca_longa and periodo_cache < 12:
-            if not _atualizando:
-                threading.Thread(target=atualizar_cache_background, args=(12,), daemon=True).start()
-            return LOADING_HTML
-        if (agora - ts) > CACHE_TEMPO_SEGUNDOS and not _atualizando:
-            threading.Thread(target=atualizar_cache_background, args=(1,), daemon=True).start()
-        return html_cache
+
+    # Captura o nome DENTRO do contexto da requisição (funciona aqui)
     usr = usuario_logado()
     nome_user = usr.get('nome', 'Usuario') if usr else 'Usuario'
+
+    # Dispara a thread em background passando o nome como STRING
     threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
+
+    # Monta o HTML do dashboard
+    html = gerar_dashboard_html([], [], [])
+    return html
     
    
 
