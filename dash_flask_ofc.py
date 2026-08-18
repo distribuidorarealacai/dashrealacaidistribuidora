@@ -82,7 +82,7 @@ SETORES = {
 
 
 EMPRESAS = [
-    {"nome": "REAL MAIS", "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT", "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
+    {"nome": "REAL MAIS", "access_token": "GYMMUfafZLDUMCDQUAIaAKUbIKdTEc", "secret_token": "l5efsjlIytX6XpWDx0VNSfujQ24TjW2", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
     {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
 ]
 BASE_URL = "https://api.vhsys.com/v2"
