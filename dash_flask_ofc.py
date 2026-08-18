@@ -736,16 +736,11 @@ def atualizar_cache_background(meses=1, forcar=False):
     
     try:
         hoje = date.today()
-        # Por padrão busca apenas o mês atual (muito mais rápido)
-        if meses == 1:
-            di = hoje.replace(day=1).isoformat()
-        elif meses == 3:
-            di = (hoje.replace(day=1) - timedelta(days=90)).isoformat()
-        else:
-            di = (hoje.replace(day=1) - timedelta(days=365)).isoformat()
+        # Busca o mês atual
+        di = hoje.replace(day=1).isoformat()
         df = hoje.isoformat()
         
-        print(f"[DEBUG] Buscando dados de {di} a {df} ({meses} mes(es))", flush=True)
+        print(f"[DEBUG] Buscando dados de {di} a {df}", flush=True)
         
         todos_pedidos = []
         for emp in EMPRESAS:
@@ -758,9 +753,24 @@ def atualizar_cache_background(meses=1, forcar=False):
             except Exception as e:
                 print(f"[DEBUG] Erro empresa {emp.get('nome','?')}: {e}", flush=True)
         
+        # FALLBACK: se mês atual não tem dados, busca 3 meses
+        if not todos_pedidos:
+            print("[DEBUG] Sem dados no mes atual, buscando 3 meses...", flush=True)
+            di = (hoje.replace(day=1) - timedelta(days=90)).isoformat()
+            for emp in EMPRESAS:
+                try:
+                    headers = make_headers(emp)
+                    pedidos = listar_pedidos_periodo(di, df, emp, headers)
+                    processados = processar_pedidos(pedidos, emp)
+                    todos_pedidos.extend(processados)
+                    print(f"[DEBUG] FALLBACK {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
+                except Exception as e:
+                    print(f"[DEBUG] Erro fallback {emp.get('nome','?')}: {e}", flush=True)
+        
         entregas = []
         try:
             entregas = ler_dados_entregas()
+            print(f"[DEBUG] Entregas: {len(entregas)}", flush=True)
         except Exception as e:
             print(f"[DEBUG] Erro entregas: {e}", flush=True)
         
@@ -940,7 +950,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
 </div>
 <div class="ctn">
-<div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
+<div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()" id="btnHoje">Hoje</button><button class="bp" onclick="p7()" id="btn7d">7d</button><button class="bp" onclick="pm()" id="btnMes">Mes</button><button class="bp" onclick="pt()" id="btnTudo">Tudo</button></div></div>
 <div class="fb" id="fbEmp" style="padding:14px 24px"><div class="ef"><span class="el">Empresa:</span><button class="be act" onclick="se('todos',this)">Consolidado</button><button class="be" onclick="se('REAL MAIS',this)">REAL MAIS</button><button class="be" onclick="se('GP DISTRIBUIDORA',this)">GP</button></div></div>
 <div id="tc-com" class="tc act">
 <div class="kg" id="kpi"></div>
@@ -988,7 +998,7 @@ var IS_MASTER=__IS_MASTER__;
 function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
 var cV,cD,cK,cE,cED;
 function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
-function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
+function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});var target=document.getElementById(map[t]);if(target){target.classList.add('act')}else{console.log('Aba nao encontrada: '+map[t]);return}b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(typeof cV!=='undefined'&&cV)cV.resize();if(typeof cD!=='undefined'&&cD)cD.resize();if(typeof cK!=='undefined'&&cK)cK.resize();}else if(t==='logistica'){if(typeof cE!=='undefined'&&cE)cE.resize();if(typeof cED!=='undefined'&&cED)cED.resize();}}catch(e){console.log('Erro resize: '+e)}},50)}
 function nn(n){if(!n)return 'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim().toUpperCase()}
 function bm(n){var m=gm(currentMR);var nl=n.toLowerCase();var k=Object.keys(m.vendedoras).find(function(x){return x.toLowerCase()===nl});return k?m.vendedoras[k]:0}
 function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -1002,7 +1012,7 @@ function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.to
 function pm(){var a=new Date();var i=new Date(a.getFullYear(),a.getMonth(),1);var f=new Date(a.getFullYear(),a.getMonth()+1,0);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
 function pt(){sd('__MIN__','__MAX__')}
 function sd(i,f){document.getElementById('dIni').value=i;document.getElementById('dFim').value=f;af()}
-function af(){renderTudo()}
+function af(){var btn=document.querySelector('.ba');if(btn){btn.textContent='Filtrando...';btn.disabled=true}setTimeout(function(){renderTudo();if(btn){btn.textContent='Aplicar';btn.disabled=false}},100)}
 function rk(ft,qv,tm,dp,nv){var el='Consolidado';if(ef==='REAL MAIS')el='REAL MAIS';else if(ef==='GP DISTRIBUIDORA')el='GP';document.getElementById('kpi').innerHTML='<div class="kc"><div class="kl">Faturamento '+el+'</div><div class="kv">'+fm(ft)+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc grn"><div class="kl">Vendas</div><div class="kv">'+qv+'</div><div class="ks">nao cancelados</div></div><div class="kc amb"><div class="kl">Ticket Medio</div><div class="kv">'+fm(tm)+'</div><div class="ks">por venda</div></div><div class="kc pur"><div class="kl">Vendedoras Ativas</div><div class="kv">'+nv+'</div><div class="ks">no periodo</div></div>'}
 function rc(ped,ft,qv){var pe={};TP.forEach(function(p){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;if(p.data>=ini&&p.data<=fim){if(!pe[p.empresa])pe[p.empresa]={f:0,q:0};pe[p.empresa].f+=p.valor;pe[p.empresa].q+=1}});var ftT=Object.values(pe).reduce(function(s,v){return s+v.f},0),qvT=Object.values(pe).reduce(function(s,v){return s+v.q},0);document.getElementById('kpiC').innerHTML='<div class="kc"><div class="kl">Faturamento Consolidado</div><div class="kv">'+fm(ftT)+'</div><div class="ks">'+qvT+' venda(s)</div></div><div class="kc grn"><div class="kl">Faturamento REAL MAIS</div><div class="kv">'+fm(pe['REAL MAIS']?pe['REAL MAIS'].f:0)+'</div><div class="ks">'+(pe['REAL MAIS']?pe['REAL MAIS'].q:0)+' venda(s)</div></div><div class="kc amb"><div class="kl">Faturamento GP DISTRIBUIDORA</div><div class="kv">'+fm(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].f:0)+'</div><div class="ks">'+(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].q:0)+' venda(s)</div></div><div class="kc pur"><div class="kl">Ticket Geral</div><div class="kv">'+fm(qvT>0?ftT/qvT:0)+'</div><div class="ks">consolidado</div></div>';var h='';Object.entries(pe).sort(function(a,b){return b[1].f-a[1].f}).forEach(function(entry,i){var n=entry[0],d=entry[1];var p=ftT>0?(d.f/ftT*100):0;var t=d.q>0?d.f/d.q:0;var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+n+'</td><td class="vc">'+fm(d.f)+'</td><td>'+d.q+'</td><td>'+fm(t)+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});document.getElementById('tbEmp').innerHTML=h}
 function rm(vs,mr,fma,maStr){var h='';var pvMes={};TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).forEach(function(p){var v=nn(p.vendedor);if(!pvMes[v])pvMes[v]={f:0,q:0};pvMes[v].f+=p.valor;pvMes[v].q+=1});if(ef==='todos'){var metasMes=gm(mr);var tm2=metasMes.consolidada,tf=fma,pc=tm2>0?(tf/tm2*100):0,pb=Math.min(pc,100),fl=Math.max(tm2-tf,0);var sc,st,cb;if(pc>=100){sc='sb';st='Meta atingida';cb='#16a34a'}else if(pc>=70){sc='sp';st='Quase la';cb='#f59e0b'}else{sc='sl';st='Em progresso';cb='#dc2626'}var tv=TP.filter(function(p){return p.data.substring(0,7)===maStr}).reduce(function(s,p){return s+1},0);var nm=fm2(maStr);var tf2='';if(tm2>0&&pc<100){tf2='Faltam <strong style="color:#fff">'+fm(fl)+'</strong> para a meta de '+nm}else if(tm2>0&&pc>=100){tf2='Superou a meta de '+nm+' em <strong style="color:#fff">'+fm(tf-tm2)+'</strong>'}h+='<div class="mc con"><div class="mh"><div class="ma" style="background:#fff;color:#2563eb">C</div><div><div class="mn">META CONSOLIDADA - '+nm+'</div><div class="ms">'+tv+' venda(s) em '+nm+' - Ticket: '+fm(tv>0?tf/tv:0)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb+'%;background:'+cb+'">'+pc.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv">'+fm(tf)+'</span><span style="color:rgba(255,255,255,.7);font-size:13px"> / '+fm(tm2)+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf2?'<div class="mf">'+tf2+'</div>':'')+'</div>'}var nw=new Set(vs.map(function(v){return v.n.toLowerCase()}));var td=vs.slice();Object.keys(metasMes.vendedoras).forEach(function(n){if(!nw.has(n.toLowerCase())){var ee=(n==='GP DISTRIBUIDORA')?'GP DISTRIBUIDORA':'REAL MAIS';if(ef==='todos'||ef===ee)td.push({n:n,f:0,q:0,e:ee})}});td.sort(function(a,b){var ma2=bm(a.n),mb2=bm(b.n);var fa=pvMes[a.n]?pvMes[a.n].f:0;var fb=pvMes[b.n]?pvMes[b.n].f:0;return(mb2>0?fb/mb2:0)-(ma2>0?fa/ma2:0)});td.forEach(function(v,i){var m2=bm(v.n),c=C[i%C.length],ini=v.n.split(' ').map(function(p){return p[0]}).join('').substring(0,2).toUpperCase();var fatMes=pvMes[v.n]?pvMes[v.n].f:0;var qtdMes=pvMes[v.n]?pvMes[v.n].q:0;var pm2=m2>0?(fatMes/m2*100):0,pb2=Math.min(pm2,100);var sc,st,cb;if(m2===0){sc='sn';st='Sem meta';cb='#94a3b8'}else if(pm2>=100){sc='sb';st='Batida';cb='#16a34a'}else if(pm2>=70){sc='sp';st='Quase';cb='#f59e0b'}else{sc='sl';st='Progresso';cb='#dc2626'}var fl=m2>0?Math.max(m2-fatMes,0):0,tm3=qtdMes>0?fatMes/qtdMes:0;var tf3='';if(m2>0&&pm2<100){tf3='Faltam <strong>'+fm(fl)+'</strong>'}else if(m2>0&&pm2>=100){tf3='Superou <strong>'+fm(fatMes-m2)+'</strong>'}var be=v.e==='GP DISTRIBUIDORA'?'<span style="background:#fef3c7;color:#f59e0b;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px">GP</span>':'<span style="background:#dbeafe;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;margin-left:8px">RM</span>';h+='<div class="mc"><div class="mh"><div class="ma" style="background:'+c+'">'+ini+'</div><div><div class="mn">'+v.n+be+'</div><div class="ms">'+qtdMes+' venda(s) - Ticket: '+fm(tm3)+'</div></div></div><div class="mpb"><div class="mpf" style="width:'+pb2+'%;background:'+cb+'">'+pm2.toFixed(0)+'%</div></div><div class="mst"><div><span class="mv '+(pm2>=100?'at':'')+'">'+fm(fatMes)+'</span><span style="color:var(--mut);font-size:13px"> / '+(m2>0?fm(m2):'-')+'</span></div><span class="msb '+sc+'">'+st+'</span></div>'+(tf3?'<div class="mf">'+tf3+'</div>':'')+'</div>'});document.getElementById('metas').innerHTML=h}
