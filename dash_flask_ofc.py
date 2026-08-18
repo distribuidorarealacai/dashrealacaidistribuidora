@@ -7,7 +7,7 @@ from datetime import datetime, date
 from calendar import monthrange
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
-from flask import Flask, request, jsonify, send_file, Response
+from flask import Flask, request, jsonify, send_file, Response, session, redirect
 app = Flask(__name__)
 import hashlib, secrets
 from flask import session, redirect, url_for
@@ -512,7 +512,7 @@ td.vn{{font-weight:600}}
 </html>'''
 def gerar_dashboard_html(pedidos, entregas):
     def safe_json(obj):
-        return json.dumps(obj, ensure_ascii=False, default=str)
+        return json.dumps(obj, ensure_ascii=False, default=str).replace('<', '\u003c').replace('>', '\u003e')
     dj = safe_json(pedidos)
     ej = safe_json(entregas)
     with _metas_lock:
@@ -672,7 +672,7 @@ def dashboard():
             html = html.replace("__USER_SECTOR__", u["setor"])
             html = html.replace("__USER_ROLE__", u["role"])
             html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-            return html
+            return Response(html, mimetype='text/html')
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
         todos = buscar_dados_mes_atual()
@@ -685,7 +685,7 @@ def dashboard():
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
-        return html
+        return Response(html, mimetype='text/html')
     except Exception as e:
         return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
 
