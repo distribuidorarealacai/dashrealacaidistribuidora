@@ -1032,6 +1032,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.typ
 window.addEventListener('DOMContentLoaded',init);
 <a href="/dashboard?periodo=completo" style="position:fixed;top:15px;right:15px;background:#9333ea;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;z-index:9999;">📅 Ver 12 meses</a>
 <a href="/dashboard" style="position:fixed;top:15px;right:130px;background:#6b21a8;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;z-index:9999;">📅 Ver 3 meses</a>
+renderTudo();
 </script>
 </body>
 </html>'''
