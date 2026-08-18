@@ -64,7 +64,7 @@ def requer_login(f):
 
 def requer_admin_master(f):
     def wrap(*args, **kwargs):
-        u = usuario_logado() 
+        u = usuario_logado()
         if not u:
             return redirect('/login')
         if u["role"] != 'admin_master':
@@ -441,102 +441,136 @@ def gerar_dashboard_html(pedidos, entregas):
     else:
         mind = date.today().replace(day=1).isoformat()
         maxd = date.today().isoformat()
-    PAGINA_INICIAL = '''
-<!DOCTYPE html>
+
+PAGINA_INICIAL = '''<!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real Açaí Distribuidora</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: Arial, sans-serif; background:#1a0b2e; color:#fff; }
-        header { display:flex; justify-content:space-between; align-items:center; padding:20px 40px; background:#2a1448; }
-        .logo { font-size:22px; font-weight:bold; color:#c084fc; }
-        nav a { color:#fff; text-decoration:none; margin:0 15px; font-size:15px; }
-        nav a:hover { color:#c084fc; }
-        .btn-login { background:#7c3aed; color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none; }
-        .hero { text-align:center; padding:80px 20px; }
-        .badge { background:#3b1a6b; display:inline-block; padding:8px 16px; border-radius:20px; font-size:14px; }
-        .hero h1 { font-size:38px; margin:20px 0; max-width:800px; margin-left:auto; margin-right:auto; }
-        .hero p { font-size:18px; color:#d8b4fe; max-width:600px; margin:0 auto 30px; }
-        .btn-pedido { background:#c084fc; color:#1a0b2e; padding:15px 35px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; }
-        footer { text-align:center; padding:30px; color:#a78bfa; }
-        .contato { margin-top:10px; font-size:14px; color:#c4b5fd; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Açaí Distribuidora</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 40px;background:rgba(20,8,40,0.95);position:fixed;width:100%;top:0;z-index:100;}
+.logo{font-size:20px;font-weight:800;color:#c084fc;letter-spacing:1px;}
+.logo span{color:#fff;}
+nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weight:500;transition:color .2s;}
+nav a:hover{color:#c084fc;}
+.btn-login{border:2px solid #c084fc;color:#c084fc;padding:8px 18px;border-radius:25px;text-decoration:none;font-size:14px;font-weight:600;transition:all .2s;}
+.btn-login:hover{background:#c084fc;color:#1a0b2e;}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(26,11,46,0.82),rgba(26,11,46,0.92)),url('https://dashboardrealmais.onrender.com/static/hero.jpg') center/cover no-repeat;}
+.badge{background:rgba(192,132,252,0.15);border:1px solid #c084fc;color:#e9d5ff;padding:8px 22px;border-radius:30px;font-size:14px;margin-bottom:22px;letter-spacing:0.5px;}
+.hero h1{font-size:44px;font-weight:800;max-width:800px;line-height:1.2;margin-bottom:18px;}
+.hero h1 .destaque{color:#c084fc;}
+.hero p{font-size:18px;color:#d8b4fe;max-width:620px;line-height:1.7;margin-bottom:36px;}
+.btn-pedido{background:#22c55e;color:#fff;padding:15px 42px;border-radius:30px;text-decoration:none;font-weight:700;font-size:17px;box-shadow:0 6px 20px rgba(34,197,94,0.35);transition:transform .2s,box-shadow .2s;}
+.btn-pedido:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(34,197,94,0.5);}
+.versiculo{margin-top:55px;font-style:italic;color:#a78bfa;font-size:15px;letter-spacing:0.5px;}
+#historia{padding:90px 40px;text-align:center;background:#221040;}
+#historia h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
+#historia h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
+#historia p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
+#contato{padding:80px 40px;text-align:center;background:#1a0b2e;}
+#contato h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
+.contato-item{display:inline-block;margin:0 25px;padding:18px 28px;background:#221040;border-radius:12px;border:1px solid #3b1a6b;}
+.contato-item a{color:#fff;text-decoration:none;font-size:16px;}
+.contato-item .icone{font-size:24px;display:block;margin-bottom:6px;}
+footer{text-align:center;padding:35px 20px;background:#12061f;color:#a78bfa;font-size:14px;border-top:1px solid #2a1448;}
+@media(max-width:768px){
+header{flex-direction:column;gap:12px;padding:15px 20px;position:static;}
+nav a{margin:0 8px;font-size:13px;}
+.hero h1{font-size:30px;}
+.hero{padding-top:60px;}
+.contato-item{display:block;margin:12px auto;max-width:320px;}
+}
+</style>
 </head>
 <body>
-    <header>
-        <div class="logo">REAL AÇAÍ DISTRIBUIDORA</div>
-        <nav>
-            <a href="/">Início</a>
-            <a href="#historia">Nossa História</a>
-            <a href="/dashboard">Vendedoras</a>
-            <a href="#pedido">Faça seu Pedido</a>
-            <a href="#contato">Contato</a>
-        </nav>
-        <a href="/login" class="btn-login">Login / Dashboard</a>
-    </header>
+<header>
+<div class="logo">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
+<nav>
+<a href="/">Início</a>
+<a href="#historia">Nossa História</a>
+<a href="/dashboard">Vendedoras</a>
+<a href="#pedido">Faça seu Pedido</a>
+<a href="#contato">Contato</a>
+</nav>
+<a href="/login" class="btn-login">Login / Dashboard</a>
+</header>
 
-    <section class="hero">
-        <span class="badge">🛒 Tradição em cada detalhe</span>
-        <h1>A tradição e qualidade que você conhece, agora também online</h1>
-        <p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
-        <a href="#pedido" class="btn-pedido">Fazer Pedido</a>
-    </section>
+<section class="hero">
+<span class="badge">✨ Tradição em cada detalhe</span>
+<h1>A tradição e qualidade que você conhece, <span class="destaque">agora também online</span></h1>
+<p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
+<a href="#pedido" class="btn-pedido">🛒 Fazer Pedido</a>
+<div class="versiculo">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
+</section>
 
-    <section id="historia" style="padding:60px 40px; text-align:center;">
-        <h2 style="color:#c084fc; margin-bottom:20px;">Nossa História</h2>
-        <p style="max-width:700px; margin:0 auto; color:#d8b4fe; line-height:1.8;">
-            Há mais de 5 anos a Real Açaí Distribuidora leva qualidade e tradição para as famílias.
-            Começamos com um sonho e hoje somos referência em distribuição de açaí e produtos de qualidade,
-            atendendo com agilidade e carinho em cada entrega.
-        </p>
-    </section>
+<section id="historia">
+<h2>Nossa História</h2>
+<p>Há mais de 5 anos a Real Açaí Distribuidora leva qualidade, tradição e sabor autêntico para as famílias da nossa região. Começamos com um sonho e um propósito: entregar o melhor açaí e os melhores produtos, com agilidade e carinho em cada entrega. Hoje somos referência em distribuição, atendendo clientes de onde estiverem — sempre com a qualidade que você já conhece.</p>
+</section>
 
-    <footer>
-        <p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
-        <div class="contato">
-            📸 Instagram: @realacaidistribuidora<br>
-            📞 (85) 99698-7832 / (85) 98524-2498
-        </div>
-    </footer>
+<section id="contato">
+<h2>Fale Conosco</h2>
+<div class="contato-item">
+<span class="icone">📸</span>
+<a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a>
+</div>
+<div class="contato-item">
+<span class="icone">📞</span>
+<a href="tel:+5585996987832">(85) 99698-7832</a>
+</div>
+<div class="contato-item">
+<span class="icone">📞</span>
+<a href="tel:+5585985242498">(85) 98524-2498</a>
+</div>
+</section>
+
+<footer>
+<p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
+<p style="margin-top:8px;color:#7c6ba8;">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</p>
+</footer>
 </body>
-</html>
-'''
-
-PAGINA_LOGIN = '''
-<!DOCTYPE html>
+</html>'''
+PAGINA_LOGIN = '''<!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Real Açaí</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:Arial,sans-serif; background:#1a0b2e; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; }
-        .card { background:#2a1448; padding:40px; border-radius:12px; width:340px; text-align:center; }
-        .card h2 { color:#c084fc; margin-bottom:20px; }
-        input { width:100%; padding:12px; margin:10px 0; border:none; border-radius:6px; background:#3b1a6b; color:#fff; }
-        button { width:100%; padding:12px; background:#7c3aed; color:#fff; border:none; border-radius:6px; font-size:16px; cursor:pointer; }
-        .erro { color:#f87171; margin-top:10px; font-size:14px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Real Açaí Distribuidora</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;}
+.card{background:#221040;padding:40px 35px;border-radius:16px;width:360px;text-align:center;border:1px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+.logo{font-size:20px;font-weight:800;color:#c084fc;margin-bottom:6px;letter-spacing:1px;}
+.sub{font-size:13px;color:#a78bfa;margin-bottom:28px;}
+.card h2{color:#c084fc;font-size:24px;margin-bottom:22px;}
+input{width:100%;padding:13px 15px;margin:9px 0;border:1px solid #3b1a6b;border-radius:8px;background:#2a1448;color:#fff;font-size:15px;outline:none;}
+input:focus{border-color:#c084fc;}
+button{width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:14px;transition:background .2s;}
+button:hover{background:#6d28d9;}
+.erro{color:#f87171;margin-top:14px;font-size:14px;}
+.voltar{display:block;margin-top:20px;color:#a78bfa;text-decoration:none;font-size:13px;}
+.voltar:hover{color:#c084fc;}
+</style>
 </head>
 <body>
-    <div class="card">
-        <h2>Login</h2>
-        <form method="POST">
-            <input type="text" name="user" placeholder="Usuário" required>
-            <input type="password" name="senha" placeholder="Senha" required>
-            <button type="submit">Entrar</button>
-        </form>
-        {% if erro %}<div class="erro">{{ erro }}</div>{% endif %}
-    </div>
+<div class="card">
+<div class="logo">REAL AÇAÍ DISTRIBUIDORA</div>
+<div class="sub">Acesso restrito — Vendedoras</div>
+<h2>Login</h2>
+<form method="POST" action="/login">
+<input type="text" name="user" placeholder="Usuário" required autofocus>
+<input type="password" name="senha" placeholder="Senha" required>
+<button type="submit">Entrar</button>
+</form>
+{% if erro %}<div class="erro">{{ erro }}</div>{% endif %}
+<a href="/" class="voltar">← Voltar para o site</a>
+</div>
 </body>
-</html>
-'''
-
-html = r'''<!DOCTYPE html>
+</html>'''
+    html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -709,7 +743,6 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -723,15 +756,10 @@ def login():
         return render_template_string(PAGINA_LOGIN, erro='Usuário ou senha inválidos')
     return render_template_string(PAGINA_LOGIN, erro='')
 
-@app.route('/')
-def index():
-    return render_template_string(PAGINA_INICIAL)
-
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
-
 
 @app.route('/admin/usuarios')
 @requer_admin_master
@@ -809,32 +837,8 @@ def logo():
     return Response(pixel, mimetype='image/png')
 
 @app.route('/')
-@requer_login
-def dashboard():
-    u = usuario_logado()
-    with _cache_lock:
-        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
-            html = _cache["html"]
-            html = html.replace("__USER_NAME__", u["nome"])
-            html = html.replace("__USER_SECTOR__", u["setor"])
-            html = html.replace("__USER_ROLE__", u["role"])
-            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-            return html
-    print("[DEBUG] Cache vazio, buscando dados...", flush=True)
-    try:
-        todos = buscar_dados_mes_atual()
-        ent = ler_dados_entregas()
-        html = gerar_dashboard_html(todos, ent)
-        html = html.replace("__USER_NAME__", u["nome"])
-        html = html.replace("__USER_SECTOR__", u["setor"])
-        html = html.replace("__USER_ROLE__", u["role"])
-        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-        with _cache_lock:
-            _cache["timestamp"] = time.time()
-            _cache["html"] = html
-        return html
-    except Exception as e:
-        return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
+def index():
+    return render_template_string(PAGINA_INICIAL)
 
 @app.route('/atualizar')
 def forcar_atualizacao():
