@@ -922,7 +922,7 @@ def login():
         
         if u and u["senha"] == senha:
             session['user'] = user
-            return redirect('/dashboard')
+            return redirect('/gerar_dashboard_html')
         return login_page_html("Usuario ou senha invalidos.")
     return login_page_html()
 
