@@ -950,16 +950,20 @@ def admin_novo_usuario():
     if username == 'admin':
         return redirect('/admin/usuarios?erro=admin')
     users = carregar_usuarios()
-    if username in users:
+    logins_existentes = [u["login"] for u in users]
+    if username in logins_existentes:
         return redirect('/admin/usuarios?erro=existe')
-    users[username] = {
+    novo = {
         "nome": nome,
-        "senha_hash": hash_senha(senha),
+        "login": username,
+        "senha": senha,
         "role": role,
         "setor": setor
     }
+    users.append(novo)
     salvar_usuarios(users)
     return redirect('/admin/usuarios?ok=1')
+
 
 @app.route('/admin/usuarios/excluir', methods=['POST'])
 @requer_admin_master
