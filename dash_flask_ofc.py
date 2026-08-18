@@ -8,6 +8,7 @@ from calendar import monthrange
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from flask import Flask, request, jsonify, send_file, send_from_directory, Response, session, redirect, render_template_string, url_for
+from datetime import datetime, date, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'real_acai_2026_secret_key')
@@ -721,11 +722,39 @@ td.vn{{font-weight:600}}
 def dashboard():
     if not session.get('user'):
         return redirect('/login')
-    pedidos = carregar_pedidos()
-    entregas = carregar_entregas()
-    produtos = carregar_produtos()
-    return gerar_dashboard_html(pedidos, entregas, produtos)
-
+    
+    # Verifica cache
+    with _cache_lock:
+        ts = _cache.get("timestamp", 0)
+        html_cache = _cache.get("html", "")
+    
+    agora = time.time()
+    if html_cache and (agora - ts) < CACHE_TEMPO_SEGUNDOS:
+        return html_cache
+    
+    # Cache expirado - busca dados novos
+    hoje = date.today()
+    di = (hoje.replace(day=1) - timedelta(days=365)).isoformat()
+    df = hoje.isoformat()
+    
+    todos_pedidos = []
+    for emp in EMPRESAS:
+        headers = make_headers(emp)
+        pedidos = listar_pedidos_periodo(di, df, emp, headers)
+        processados = processar_pedidos(pedidos, emp)
+        todos_pedidos.extend(processados)
+    
+    entregas = ler_dados_entregas()
+    produtos = []  # se houver função de produtos, ajuste aqui
+    
+    html = gerar_dashboard_html(todos_pedidos, entregas, produtos)
+    
+    # Salva no cache
+    with _cache_lock:
+        _cache["timestamp"] = agora
+        _cache["html"] = html
+    
+    return html
 def gerar_dashboard_html(pedidos, entregas, produtos):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str)
