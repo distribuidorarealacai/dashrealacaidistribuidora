@@ -719,7 +719,7 @@ import threading
 
 _atualizando_cache = False
 
-def atualizar_cache_background(meses=1, forcar=False):
+def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
     global _atualizando_cache
     with _cache_lock:
         if _atualizando_cache and not forcar:
@@ -782,12 +782,24 @@ def atualizar_cache_background(meses=1, forcar=False):
         with _cache_lock:
             _atualizando_cache = False
 
+def usuario_logado():
+    if 'user' not in session:
+        return None
+    usuarios = carregar_usuarios()
+    users = {u["login"]: u for u in usuarios}
+    return users.get(session['user'])
+
 @app.route('/dashboard')
 def dashboard():
     if not session.get('user'):
         return redirect('/login')
     
-    busca_longa = request.args.get('periodo', '') == 'completo'
+    # Captura o nome AQUI (dentro do contexto da requisição - funciona)
+    u = usuario_logado()
+    nome_user = u.get('nome', 'Usuario') if u else 'Usuario'
+    
+    # Passa o nome para a thread
+    threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
     
     with _cache_lock:
         ts = _cache.get("timestamp", 0)
@@ -1049,10 +1061,18 @@ def login():
         u = users.get(user)
         
         if u and u["senha"] == senha:
-            session['user'] = user
+            nome_user['user'] = user
             return redirect('/dashboard')
         return login_page_html("Usuario ou senha invalidos.")
     return login_page_html()
+
+def nome_user:
+    if 'user' not in session:
+        return None
+    usuarios = carregar_usuarios()
+    users = {u["login"]: u for u in usuarios}
+    u = users.get(nome_user['user'])
+    return u
 
 @app.route('/logout')
 def logout():
