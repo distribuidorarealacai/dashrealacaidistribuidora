@@ -1066,7 +1066,7 @@ def login():
         return login_page_html("Usuario ou senha invalidos.")
     return login_page_html()
 
-def nome_user:
+def nome_user():
     if 'user' not in session:
         return None
     usuarios = carregar_usuarios()
