@@ -718,43 +718,124 @@ td.vn{{font-weight:600}}
 </body>
 </html>'''
 
+
+import threading
+
+_atualizando_cache = False
+
+def atualizar_cache_background(meses=3, forcar=False):
+    global _atualizando_cache
+    with _cache_lock:
+        if _atualizando_cache and not forcar:
+            return
+        _atualizando_cache = True
+    
+    try:
+        hoje = date.today()
+        # Por padrão busca apenas 3 meses (rápido)
+        di = (hoje.replace(day=1) - timedelta(days=meses * 30)).isoformat()
+        df = hoje.isoformat()
+        
+        todos_pedidos = []
+        for emp in EMPRESAS:
+            try:
+                headers = make_headers(emp)
+                pedidos = listar_pedidos_periodo(di, df, emp, headers)
+                processados = processar_pedidos(pedidos, emp)
+                todos_pedidos.extend(processados)
+            except Exception as e:
+                print(f"[DEBUG] Erro empresa {emp.get('nome','?')}: {e}", flush=True)
+        
+        entregas = []
+        try:
+            entregas = ler_dados_entregas()
+        except Exception as e:
+            print(f"[DEBUG] Erro entregas: {e}", flush=True)
+        
+        produtos = []
+        
+        html = gerar_dashboard_html(todos_pedidos, entregas, produtos)
+        
+        with _cache_lock:
+            _cache["timestamp"] = time.time()
+            _cache["html"] = html
+            _cache["periodo_meses"] = meses
+            _atualizando_cache = False
+    except Exception as e:
+        print(f"[DEBUG] Erro cache background: {e}", flush=True)
+        with _cache_lock:
+            _atualizando_cache = False
+
 @app.route('/dashboard')
 def dashboard():
     if not session.get('user'):
         return redirect('/login')
     
-    # Verifica cache
+    # Verifica se o usuário quer busca estendida (12 meses)
+    busca_longa = request.args.get('periodo', '') == 'completo'
+    
     with _cache_lock:
         ts = _cache.get("timestamp", 0)
         html_cache = _cache.get("html", "")
+        _atualizando = _atualizando_cache
+        periodo_cache = _cache.get("periodo_meses", 0)
     
     agora = time.time()
-    if html_cache and (agora - ts) < CACHE_TEMPO_SEGUNDOS:
-        return html_cache
     
-    # Cache expirado - busca dados novos
-    hoje = date.today()
-    di = (hoje.replace(day=1) - timedelta(days=365)).isoformat()
-    df = hoje.isoformat()
+    # Se tem cache válido para o período solicitado, retorna instantaneamente
+    if html_cache:
+        if busca_longa:
+            # Se pediu período completo e o cache é de 3 meses, mostra loading
+            if periodo_cache < 12:
+                if not _atualizando:
+                    threading.Thread(target=atualizar_cache_background, args=(12,), daemon=True).start()
+                return LOADING_HTML
+            # Cache já é de 12 meses — retorna direto
+            if (agora - ts) > CACHE_TEMPO_SEGUNDOS and not _atualizando:
+                threading.Thread(target=atualizar_cache_background, args=(12,), daemon=True).start()
+            return html_cache
+        else:
+            # Busca padrão (3 meses) — retorna do cache instantaneamente
+            if periodo_cache == 3 and (agora - ts) < CACHE_TEMPO_SEGUNDOS:
+                return html_cache
+            if periodo_cache == 3:
+                if not _atualizando:
+                    threading.Thread(target=atualizar_cache_background, args=(3,), daemon=True).start()
+                return html_cache
+            # Cache é de 12 meses mas usuário quer 3 meses — busca 3 meses
+            if not _atualizando:
+                threading.Thread(target=atualizar_cache_background, args=(3,), daemon=True).start()
+            return html_cache if html_cache else LOADING_HTML
     
-    todos_pedidos = []
-    for emp in EMPRESAS:
-        headers = make_headers(emp)
-        pedidos = listar_pedidos_periodo(di, df, emp, headers)
-        processados = processar_pedidos(pedidos, emp)
-        todos_pedidos.extend(processados)
-    
-    entregas = ler_dados_entregas()
-    produtos = []  # se houver função de produtos, ajuste aqui
-    
-    html = gerar_dashboard_html(todos_pedidos, entregas, produtos)
-    
-    # Salva no cache
-    with _cache_lock:
-        _cache["timestamp"] = agora
-        _cache["html"] = html
-    
-    return html
+    # Primeiro acesso — sem cache — mostra loading
+    meses_busca = 12 if busca_longa else 3
+    threading.Thread(target=atualizar_cache_background, args=(meses_busca,), daemon=True).start()
+    return LOADING_HTML
+
+LOADING_HTML = '''<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carregando Dashboard...</title>
+<style>
+body{margin:0;display:flex;align-items:center;justify-content:center;
+min-height:100vh;background:linear-gradient(135deg,#1a0a2e,#4c1d95);
+font-family:Arial,sans-serif;color:#fff;text-align:center}
+.loader{border:5px solid #f3f3f3;border-top:5px solid #9333ea;
+border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:20px auto}
+@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+h2{margin-bottom:10px} p{opacity:0.8}
+</style></head>
+<body><div>
+<h2>Carregando Dashboard...</h2>
+<div class="loader"></div>
+<p>Buscando dados das empresas. Aguarde.</p>
+</div>
+<script>
+setTimeout(function(){ window.location.reload(); }, 12000);
+</script>
+</body></html>'''
+
+
 def gerar_dashboard_html(pedidos, entregas, produtos):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str)
@@ -856,7 +937,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="/imagem-fachada" alt="Real Acai" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Real Acai" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
 <div class="tabs" id="navTabs">
 <button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
 <button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
@@ -942,6 +1023,8 @@ function bCMV(i,f,ei,eig,ef,efg){fetch('/cmv?data_inicial='+i+'&data_final='+f+'
 function rCMV(d){var f=function(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})};document.getElementById('cmvR').innerHTML='<div class="tc2"><div class="ct">CMV de '+d.data_inicial.split('-').reverse().join('/')+' a '+d.data_final.split('-').reverse().join('/')+'</div><table><thead><tr><th>Componente</th><th>REAL MAIS</th><th>GP</th><th>Total</th></tr></thead><tbody><tr><td class="vn">(+) Estoque Inicial</td><td class="vc">'+f(d.estoque_inicial_rm)+'</td><td class="vc">'+f(d.estoque_inicial_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.estoque_inicial_total)+'</td></tr><tr><td class="vn">(+) Compras (auto)</td><td class="vc">'+f(d.compras_rm)+'</td><td class="vc">'+f(d.compras_gp)+'</td><td class="vc" style="font-size:16px">'+f(d.compras_total)+'</td></tr><tr><td class="vn">(-) Estoque Final</td><td>'+f(d.estoque_final_rm)+'</td><td>'+f(d.estoque_final_gp)+'</td><td style="font-size:16px">'+f(d.estoque_final_total)+'</td></tr><tr style="border-top:3px solid #2563eb"><td class="vn" style="font-size:16px">= CMV</td><td></td><td></td><td class="vc" style="font-size:20px;color:#dc2626">'+f(d.cmv)+'</td></tr></tbody></table></div>'}
 document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.type==='date')af()});
 window.addEventListener('DOMContentLoaded',init);
+<a href="/dashboard?periodo=completo" style="position:fixed;top:15px;right:15px;background:#9333ea;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;z-index:9999;">📅 Ver 12 meses</a>
+<a href="/dashboard" style="position:fixed;top:15px;right:130px;background:#6b21a8;color:#fff;padding:8px 16px;border-radius:8px;text-decoration:none;font-size:13px;z-index:9999;">📅 Ver 3 meses</a>
 </script>
 </body>
 </html>'''
