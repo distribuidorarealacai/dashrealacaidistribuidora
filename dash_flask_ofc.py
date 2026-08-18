@@ -803,7 +803,7 @@ def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
 
         produtos = []
 
-        html = gerar_dashboard_html(todos_pedidos, entregas, produtos)
+        html = gerar_dashboard_html(todos_pedidos, entregas, produtos, nome_user)
 
         with _cache_lock:
             _cache["timestamp"] = time.time()
@@ -837,7 +837,7 @@ def dashboard():
     threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
 
     # Monta o HTML do dashboard
-    html = gerar_dashboard_html([], [], [])
+    html = gerar_dashboard_html([], [], [], nome_user)
     return html
     
    
@@ -865,7 +865,7 @@ setTimeout(function(){ window.location.reload(); }, 20000);
 </script>
 </body></html>'''
 
-def gerar_dashboard_html(pedidos, entregas, produtos):
+def gerar_dashboard_html(todos_pedidos, entregas, produtos, nome_user='Usuario'):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str).replace("</", "<\/")
     dj = safe_json(pedidos)
