@@ -719,6 +719,39 @@ import threading
 
 _atualizando_cache = False
 
+
+def listar_pedidos_periodo_rapido(di, df, empresa, headers):
+    ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
+    todos = []; offset = 0; limit = 250; pag = 1
+    while pag <= 20:  # LIMITE de 20 páginas (5000 registros)
+        params = {"limit": limit, "offset": offset, "order": ofield, "sort": "Desc"}
+        try: resp = requests.get(f"{BASE_URL}{ep}", headers=headers, params=params, timeout=15)
+        except: break
+        if resp.status_code != 200: break
+        try: payload = resp.json()
+        except: break
+        lote = payload.get("data", [])
+        if isinstance(lote, dict): lote = [lote]
+        if not lote or not isinstance(lote, list): break
+        todos.extend(lote)
+        antes = 0
+        for p in lote:
+            if not isinstance(p, dict): continue
+            dp = normalizar_data(p.get(dfield,""))
+            if dp and dp != "0000-00-00" and dp < di: antes += 1
+        if antes > 0: break
+        if len(lote) < limit: break
+        offset += limit; pag += 1
+    filtrados = []
+    for p in todos:
+        if not isinstance(p, dict): continue
+        dp = normalizar_data(p.get(dfield,""))
+        if dp and dp != "0000-00-00" and di <= dp <= df:
+            p[dfield] = dp
+            filtrados.append(p)
+    return filtrados
+
+
 def atualizar_cache_background(meses=1, nome_user='Usuario', forcar=False):
     global _atualizando_cache
     with _cache_lock:
