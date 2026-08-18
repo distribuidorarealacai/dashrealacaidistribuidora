@@ -1213,7 +1213,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 <h2>Conheça um pouco de <span>nossa história</span></h2>
 <div class="historia-grid">
 <div class="img-box">
-<img src="imagem_frente.jpg" alt="Real Acai">
+<img src="imagem-fachada" alt="Real Acai">
 <div class="verse-overlay">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
 </div>
 <div class="texto">
@@ -1268,7 +1268,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 <div class="contato-info">
 <div class="item">
 <div class="ic">📍</div>
-<div><strong>Endereço</strong><span>Av. Pres. Castelo Branco, 3833<br>Próximo à UPA e a Gerdoi<br>Fortaleza - CE</span></div>
+<div><strong>Endereço</strong><span>Av. Pres. Castelo Branco, 3833<br>Próximo à UPA e a Gerdau<br>Fortaleza - CE</span></div>
 </div>
 <div class="item">
 <div class="ic">📞</div>
