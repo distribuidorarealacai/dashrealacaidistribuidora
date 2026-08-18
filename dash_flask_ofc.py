@@ -64,7 +64,7 @@ def requer_login(f):
 
 def requer_admin_master(f):
     def wrap(*args, **kwargs):
-        u = usuario_logado()
+        u = usuario_logado() 
         if not u:
             return redirect('/login')
         if u["role"] != 'admin_master':
@@ -441,6 +441,101 @@ def gerar_dashboard_html(pedidos, entregas):
     else:
         mind = date.today().replace(day=1).isoformat()
         maxd = date.today().isoformat()
+    PAGINA_INICIAL = '''
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Açaí Distribuidora</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: Arial, sans-serif; background:#1a0b2e; color:#fff; }
+        header { display:flex; justify-content:space-between; align-items:center; padding:20px 40px; background:#2a1448; }
+        .logo { font-size:22px; font-weight:bold; color:#c084fc; }
+        nav a { color:#fff; text-decoration:none; margin:0 15px; font-size:15px; }
+        nav a:hover { color:#c084fc; }
+        .btn-login { background:#7c3aed; color:#fff; padding:10px 20px; border-radius:8px; text-decoration:none; }
+        .hero { text-align:center; padding:80px 20px; }
+        .badge { background:#3b1a6b; display:inline-block; padding:8px 16px; border-radius:20px; font-size:14px; }
+        .hero h1 { font-size:38px; margin:20px 0; max-width:800px; margin-left:auto; margin-right:auto; }
+        .hero p { font-size:18px; color:#d8b4fe; max-width:600px; margin:0 auto 30px; }
+        .btn-pedido { background:#c084fc; color:#1a0b2e; padding:15px 35px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:18px; }
+        footer { text-align:center; padding:30px; color:#a78bfa; }
+        .contato { margin-top:10px; font-size:14px; color:#c4b5fd; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">REAL AÇAÍ DISTRIBUIDORA</div>
+        <nav>
+            <a href="/">Início</a>
+            <a href="#historia">Nossa História</a>
+            <a href="/dashboard">Vendedoras</a>
+            <a href="#pedido">Faça seu Pedido</a>
+            <a href="#contato">Contato</a>
+        </nav>
+        <a href="/login" class="btn-login">Login / Dashboard</a>
+    </header>
+
+    <section class="hero">
+        <span class="badge">🛒 Tradição em cada detalhe</span>
+        <h1>A tradição e qualidade que você conhece, agora também online</h1>
+        <p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
+        <a href="#pedido" class="btn-pedido">Fazer Pedido</a>
+    </section>
+
+    <section id="historia" style="padding:60px 40px; text-align:center;">
+        <h2 style="color:#c084fc; margin-bottom:20px;">Nossa História</h2>
+        <p style="max-width:700px; margin:0 auto; color:#d8b4fe; line-height:1.8;">
+            Há mais de 5 anos a Real Açaí Distribuidora leva qualidade e tradição para as famílias.
+            Começamos com um sonho e hoje somos referência em distribuição de açaí e produtos de qualidade,
+            atendendo com agilidade e carinho em cada entrega.
+        </p>
+    </section>
+
+    <footer>
+        <p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
+        <div class="contato">
+            📸 Instagram: @realacaidistribuidora<br>
+            📞 (85) 99698-7832 / (85) 98524-2498
+        </div>
+    </footer>
+</body>
+</html>
+'''
+
+PAGINA_LOGIN = '''
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Real Açaí</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:Arial,sans-serif; background:#1a0b2e; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; }
+        .card { background:#2a1448; padding:40px; border-radius:12px; width:340px; text-align:center; }
+        .card h2 { color:#c084fc; margin-bottom:20px; }
+        input { width:100%; padding:12px; margin:10px 0; border:none; border-radius:6px; background:#3b1a6b; color:#fff; }
+        button { width:100%; padding:12px; background:#7c3aed; color:#fff; border:none; border-radius:6px; font-size:16px; cursor:pointer; }
+        .erro { color:#f87171; margin-top:10px; font-size:14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Login</h2>
+        <form method="POST">
+            <input type="text" name="user" placeholder="Usuário" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <button type="submit">Entrar</button>
+        </form>
+        {% if erro %}<div class="erro">{{ erro }}</div>{% endif %}
+    </div>
+</body>
+</html>
+'''
+
     html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -614,23 +709,29 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        user = request.form.get('username', '').strip()
+        user = request.form.get('user', '').strip()
         senha = request.form.get('senha', '')
-        users = carregar_usuarios()
-        u = users.get(user)
-        if u and u["senha_hash"] == hash_senha(senha):
-            session['user'] = user
-            return redirect('/')
-        return login_page_html("Usuario ou senha invalidos.")
-    return login_page_html()
+        usuarios = carregar_usuarios()
+        for u in usuarios:
+            if u.get('login') == user and u.get('senha') == senha:
+                session['user'] = user
+                return redirect('/dashboard')
+        return render_template_string(PAGINA_LOGIN, erro='Usuário ou senha inválidos')
+    return render_template_string(PAGINA_LOGIN, erro='')
+
+@app.route('/')
+def index():
+    return render_template_string(PAGINA_INICIAL)
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
+
 
 @app.route('/admin/usuarios')
 @requer_admin_master
