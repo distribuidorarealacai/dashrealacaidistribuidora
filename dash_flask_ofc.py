@@ -536,7 +536,7 @@ PAGINA_LOGIN = '''
 </html>
 '''
 
-    html = r'''<!DOCTYPE html>
+html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
