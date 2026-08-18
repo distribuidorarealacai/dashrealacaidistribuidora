@@ -820,7 +820,6 @@ def dashboard():
         return html_cache
     usr = usuario_logado()
     nome_user = usr.get('nome', 'Usuario') if usr else 'Usuario'
-        if session.get('user') else 'Usuario'
     threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
     
    
