@@ -256,17 +256,9 @@ def salvar_usuarios(usuarios):
 
 
 
-def usuario_logado():
-    if 'user' not in session:
-        return None
-    usuarios = carregar_usuarios()
-    users = {u["login"]: u for u in usuarios}
-    u = users.get(session['user'])
-    return u
-
 def requer_login(f):
     def wrap(*args, **kwargs):
-        u = usuario_logado()
+        u = nome_user
         if not u:
             return redirect('/login')
         return f(*args, **kwargs)
@@ -275,7 +267,7 @@ def requer_login(f):
 
 def requer_admin_master(f):
     def wrap(*args, **kwargs):
-        u = usuario_logado()
+        u = nome_user
         if not u:
             return redirect('/login')
         if u["role"] != 'admin_master':
@@ -463,7 +455,7 @@ def ler_dados_entregas():
     except: return []
     return entregas
 
-def listar_pedidos_periodo_rapido(di, df, empresa, headers):
+def listar_pedidos_periodo(di, df, empresa, headers):
     ep = empresa["endpoint"]; dfield = empresa["data_field"]; ofield = empresa["order_field"]
     todos = []; offset = 0; limit = 250; pag = 1
     while pag <= 20:  # LIMITE de 20 páginas (5000 registros) em vez de 200
@@ -760,7 +752,7 @@ def atualizar_cache_background(meses=1, forcar=False):
             for emp in EMPRESAS:
                 try:
                     headers = make_headers(emp)
-                    pedidos = listar_pedidos_periodo_rapido(di, df, emp, headers)
+                    pedidos = listar_pedidos_periodo(di, df, emp, headers)
                     processados = processar_pedidos(pedidos, emp)
                     todos_pedidos.extend(processados)
                     print(f"[DEBUG] FALLBACK {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
@@ -814,10 +806,10 @@ def dashboard():
         if (agora - ts) > CACHE_TEMPO_SEGUNDOS and not _atualizando:
             threading.Thread(target=atualizar_cache_background, args=(1,), daemon=True).start()
         return html_cache
+    nome_user = session.get('user', {}).get('nome', 'Usuario') if session.get('user') else 'Usuario'
+    threading.Thread(target=atualizar_cache_background, args=(1, nome_user), daemon=True).start()
     
-    # Primeiro acesso — sem cache — busca mês atual e mostra loading
-    threading.Thread(target=atualizar_cache_background, args=(1,), daemon=True).start()
-    return LOADING_HTML
+   
 
 LOADING_HTML = '''<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -1036,7 +1028,7 @@ renderTudo();
 </script>
 </body>
 </html>'''
-    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd).replace("__USER_NAME__", usuario_logado().get('nome', 'Usuario') if usuario_logado() else 'Usuario')
+    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__PJ__", pj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__MPR__", mpr).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd).replace("__USER_NAME__", nome_user.get('nome', 'Usuario') if nome_user else 'Usuario')
     return html
 
 @app.route('/debug-files')
@@ -1552,7 +1544,7 @@ def cmv_endpoint():
 def api_metas():
     if request.method == 'GET':
         return jsonify(carregar_metas())
-    u = usuario_logado()
+    u = nome_user
     if not u or u["role"] != 'admin_master':
         return jsonify({"status": "erro", "erro": "Apenas admin master"}), 403
     dados = request.get_json()
