@@ -89,6 +89,57 @@ def init_db():
     finally:
         conn.close()
 
+
+def migrar_dados_json_para_banco():
+    """Migra metas e metas_produtos dos arquivos JSON para o PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
+        return
+    try:
+        # Migra metas
+        if os.path.exists(METAS_FILE):
+            try:
+                with open(METAS_FILE, 'r', encoding='utf-8') as f:
+                    metas = json.load(f)
+                if metas and isinstance(metas, dict):
+                    with conn.cursor() as cur:
+                        for mes_ano, dados in metas.items():
+                            nome_mes = dados.get("nome_mes", "")
+                            vendedoras = dados.get("vendedoras", {})
+                            consolidada = float(dados.get("consolidada", 0) or 0)
+                            cur.execute("""
+                                INSERT INTO metas (mes_ano, nome_mes, vendedoras, consolidada)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (mes_ano) DO NOTHING
+                            """, (mes_ano, nome_mes, json.dumps(vendedoras), consolidada))
+                    print(f"[DEBUG] Migradas {len(metas)} metas do JSON", flush=True)
+            except Exception as e:
+                print(f"[DEBUG] Erro ao migrar metas: {e}", flush=True)
+        
+        # Migra metas_produtos
+        if os.path.exists(METAS_PRODUTOS_FILE):
+            try:
+                with open(METAS_PRODUTOS_FILE, 'r', encoding='utf-8') as f:
+                    metas_prod = json.load(f)
+                if metas_prod and isinstance(metas_prod, dict):
+                    with conn.cursor() as cur:
+                        for mes_ano, dados in metas_prod.items():
+                            nome_mes = dados.get("nome_mes", "")
+                            produtos = dados.get("produtos", [])
+                            venda_meta = float(dados.get("venda_meta", 0) or 0)
+                            cur.execute("""
+                                INSERT INTO metas_produtos (mes_ano, nome_mes, produtos, venda_meta)
+                                VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (mes_ano) DO NOTHING
+                            """, (mes_ano, nome_mes, json.dumps(produtos), venda_meta))
+                    print(f"[DEBUG] Migradas {len(metas_prod)} metas_produtos do JSON", flush=True)
+            except Exception as e:
+                print(f"[DEBUG] Erro ao migrar metas_produtos: {e}", flush=True)
+    except Exception as e:
+        print(f"[DEBUG] Erro na migracao: {e}", flush=True)
+    finally:
+        conn.close()
+
 def hash_senha(senha):
     return hashlib.sha256(senha.encode('utf-8')).hexdigest()
 
@@ -1067,3 +1118,4 @@ def api_metas():
 
 
 init_db()
+migrar_dados_json_para_banco()
