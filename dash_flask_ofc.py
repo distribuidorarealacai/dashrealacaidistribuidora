@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dash_flask_ofc.py  (v10 - simples e direto)
+dash_flask_ofc.py  (v11 - CORRIGIDO - com painel de entrada)
 """
 import os, sys, json, csv, io, re, time, threading, glob, base64
 from datetime import datetime, date
@@ -8,12 +8,9 @@ from calendar import monthrange
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from flask import Flask, request, jsonify, send_file, Response
-
 app = Flask(__name__)
-
 import hashlib, secrets
 from flask import session, redirect, url_for
-
 app.secret_key = secrets.token_hex(32)
 
 USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.json')
@@ -31,7 +28,7 @@ def carregar_usuarios():
     admin_padrao = {
         "admin": {
             "nome": "Administrador Master",
-            "senha_hash": hash_senha("Xd@132429"),
+            "senha_hash": hash_senha("132429"),
             "role": "admin_master",
             "setor": "all"
         }
@@ -80,9 +77,8 @@ SETORES = {
     "all": "Todas as abas"
 }
 
-
 EMPRESAS = [
-    {"nome": "REAL MAIS", "access_token": "GYMMUfafZLDUMCDQUAIaAKUbIKdTEc", "secret_token": "l5efsjlIytX6XpWDx0VNSfujQ24TjW2", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
+    {"nome": "REAL MAIS", "access_token": "YYeHeFaNAfVfLegOLXedMFZMLNPLQT", "secret_token": "k9Qhe0oaSAchTjWgpvLeUvxmZcyLVfO", "endpoint": "/pedidos/", "data_field": "data_pedido", "order_field": "data_pedido"},
     {"nome": "GP DISTRIBUIDORA", "access_token": "EdPfRWCOGgefDeVcSNNaGJLJeZDMST", "secret_token": "5P4nmO1ONthN5oqfX81lHKX5i0YC3dm", "endpoint": "/vendas-balcao/", "data_field": "data_cad_pedido", "order_field": "data_cad_pedido"},
 ]
 BASE_URL = "https://api.vhsys.com/v2"
@@ -110,7 +106,6 @@ def salvar_metas(metas):
 def obter_metas_mes(mes_ano):
     metas = carregar_metas()
     return metas.get(mes_ano, {"nome_mes": "", "consolidada": 0, "vendedoras": {}})
-
 
 CORES = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7']
 CACHE_TEMPO_SEGUNDOS = 1800
@@ -279,10 +274,115 @@ def buscar_dados_mes_atual():
     print(f"[DEBUG] Total: {len(todos)}", flush=True)
     return todos
 
+PAGINA_INICIAL = '''<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Açaí Distribuidora</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 40px;background:rgba(20,8,40,0.95);position:fixed;width:100%;top:0;z-index:100;}
+.logo{font-size:20px;font-weight:800;color:#c084fc;letter-spacing:1px;}
+.logo span{color:#fff;}
+nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weight:500;transition:color .2s;}
+nav a:hover{color:#c084fc;}
+.btn-login{border:2px solid #c084fc;color:#c084fc;padding:8px 18px;border-radius:25px;text-decoration:none;font-size:14px;font-weight:600;transition:all .2s;}
+.btn-login:hover{background:#c084fc;color:#1a0b2e;}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(26,11,46,0.85),rgba(26,11,46,0.93)),url('/static/hero.jpg') center/cover no-repeat;background-color:#1a0b2e;}
+.badge{background:rgba(192,132,252,0.15);border:1px solid #c084fc;color:#e9d5ff;padding:8px 22px;border-radius:30px;font-size:14px;margin-bottom:22px;letter-spacing:0.5px;}
+.hero h1{font-size:44px;font-weight:800;max-width:800px;line-height:1.2;margin-bottom:18px;}
+.hero h1 .destaque{color:#c084fc;}
+.hero p{font-size:18px;color:#d8b4fe;max-width:620px;line-height:1.7;margin-bottom:36px;}
+.btn-pedido{background:#22c55e;color:#fff;padding:15px 42px;border-radius:30px;text-decoration:none;font-weight:700;font-size:17px;box-shadow:0 6px 20px rgba(34,197,94,0.35);transition:transform .2s,box-shadow .2s;}
+.btn-pedido:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(34,197,94,0.5);}
+.versiculo{margin-top:55px;font-style:italic;color:#a78bfa;font-size:15px;letter-spacing:0.5px;}
+#historia{padding:90px 40px;text-align:center;background:#221040;}
+#historia h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
+#historia h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
+#historia p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
+#vendedoras{padding:80px 40px;text-align:center;background:#1a0b2e;}
+#vendedoras h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
+.vend-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;}
+.vend-card{background:#221040;border:1px solid #3b1a6b;border-radius:14px;padding:28px 24px;width:240px;text-align:center;}
+.vend-card .avatar{width:64px;height:64px;border-radius:50%;background:#7c3aed;color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.vend-card h3{font-size:17px;color:#fff;margin-bottom:4px;}
+.vend-card .cargo{font-size:13px;color:#a78bfa;margin-bottom:10px;}
+.vend-card .tel{font-size:14px;color:#e9d5ff;}
+#contato{padding:80px 40px;text-align:center;background:#1a0b2e;}
+#contato h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
+.contato-item{display:inline-block;margin:0 25px;padding:18px 28px;background:#221040;border-radius:12px;border:1px solid #3b1a6b;}
+.contato-item a{color:#fff;text-decoration:none;font-size:16px;}
+.contato-item .icone{font-size:24px;display:block;margin-bottom:6px;}
+footer{text-align:center;padding:35px 20px;background:#12061f;color:#a78bfa;font-size:14px;border-top:1px solid #2a1448;}
+@media(max-width:768px){
+header{flex-direction:column;gap:12px;padding:15px 20px;position:static;}
+nav a{margin:0 8px;font-size:13px;}
+.hero h1{font-size:30px;}
+.hero{padding-top:60px;}
+.contato-item{display:block;margin:12px auto;max-width:320px;}
+}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
+<nav>
+<a href="/">Início</a>
+<a href="#historia">Nossa História</a>
+<a href="#vendedoras">Vendedoras</a>
+<a href="#contato">Contato</a>
+</nav>
+<a href="/login" class="btn-login">Login / Dashboard</a>
+</header>
 
+<section class="hero">
+<span class="badge">✨ Tradição em cada detalhe</span>
+<h1>A tradição e qualidade que você conhece, <span class="destaque">agora também online</span></h1>
+<p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
+<a href="#contato" class="btn-pedido">🛒 Fazer Pedido</a>
+<div class="versiculo">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
+</section>
 
+<section id="historia">
+<h2>Nossa História</h2>
+<p>Há mais de 5 anos a Real Açaí Distribuidora leva qualidade, tradição e sabor autêntico para as famílias da nossa região. Começamos com um sonho e um propósito: entregar o melhor açaí e os melhores produtos, com agilidade e carinho em cada entrega. Hoje somos referência em distribuição, atendendo clientes de onde estiverem — sempre com a qualidade que você já conhece.</p>
+</section>
+
+<section id="vendedoras">
+<h2>Nossas Consultoras de Vendas</h2>
+<div class="vend-grid">
+<div class="vend-card"><div class="avatar">AR</div><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div></div>
+<div class="vend-card"><div class="avatar">IL</div><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div></div>
+<div class="vend-card"><div class="avatar">SM</div><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div></div>
+</div>
+</section>
+
+<section id="contato">
+<h2>Fale Conosco</h2>
+<div class="contato-item">
+<span class="icone">📸</span>
+<a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a>
+</div>
+<div class="contato-item">
+<span class="icone">📞</span>
+<a href="tel:+5585996987832">(85) 99698-7832</a>
+</div>
+<div class="contato-item">
+<span class="icone">📞</span>
+<a href="tel:+5585985242498">(85) 98524-2498</a>
+</div>
+</section>
+
+<footer>
+<p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
+<p style="margin-top:8px;color:#7c6ba8;">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</p>
+</footer>
+</body>
+</html>'''
 def login_page_html(erro=""):
-    msg = f'<div class="err">{erro}</div>' if erro else ''
+    msg = f'<div style="background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px;text-align:center">{erro}</div>' if erro else ''
     return f'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -292,7 +392,7 @@ def login_page_html(erro=""):
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}}
-.card{{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px;width:380px;max-width:90vw;margin-bottom:0}}
+.card{{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:40px;width:380px;max-width:90vw}}
 .logo{{text-align:center;margin-bottom:28px}}
 .logo img{{max-height:100px;max-width:220px;object-fit:contain;margin-bottom:8px}}
 .logo h1{{font-size:22px;color:#1e3a5f;font-weight:800}}
@@ -303,12 +403,9 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 .field input:focus{{border-color:#2563eb}}
 .btn{{width:100%;background:linear-gradient(135deg,#2563eb,#1e3a5f);color:#fff;border:none;padding:13px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;transition:transform .1s}}
 .btn:hover{{transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.4)}}
-.err{{background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px;text-align:center}}
 .hint{{text-align:center;margin-top:16px;font-size:12px;color:#94a3b8}}
+.voltar{{display:block;text-align:center;margin-top:16px;color:#2563eb;text-decoration:none;font-size:13px;font-weight:600}}
 .footer{{width:100%;max-width:600px;margin:24px auto 0;text-align:center;color:rgba(255,255,255,.6);font-size:12px;line-height:1.8}}
-.footer strong{{color:rgba(255,255,255,.85)}}
-.footer-divider{{border:none;border-top:1px solid rgba(255,255,255,.15);margin:12px auto;max-width:400px}}
-.footer-copy{{font-size:11px;opacity:.7}}
 </style>
 </head>
 <body>
@@ -320,16 +417,15 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 </div>
 {msg}
 <form method="POST" action="/login">
-<div class="field"><label>Usuario</label><input type="text" name="username" autofocus required></div>
+<div class="field"><label>Usuario</label><input type="text" name="user" autofocus required></div>
 <div class="field"><label>Senha</label><input type="password" name="senha" required></div>
 <button class="btn" type="submit">Entrar</button>
 </form>
 <div class="hint">Acesso restrito a colaboradores autorizados</div>
+<a href="/" class="voltar">← Voltar para o site</a>
 </div>
 <div class="footer">
 <div>Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial <strong>VHSYS</strong></div>
-<hr class="footer-divider">
-<div class="footer-copy">(c) 2026 Real Acai Distribuidora - Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas</div>
 </div>
 </body>
 </html>'''
@@ -350,10 +446,8 @@ def admin_page_html(users):
 <td>{role_label}</td>
 <td class="actions">{btn_senha} {btn_excluir}</td>
 </tr>'''
-
     opts_setor = ''.join([f'<option value="{k}">{v}</option>' for k, v in SETORES.items()])
     opts_role = '<option value="user">Colaborador (por setor)</option><option value="admin">Admin (ver tudo)</option>'
-
     return f'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -366,16 +460,13 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 .hdr{{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}}
 .hdr h1{{font-size:20px;font-weight:700}}
 .hdr a{{color:#fff;text-decoration:none;font-size:14px;background:rgba(255,255,255,.15);padding:8px 16px;border-radius:8px}}
-.hdr a:hover{{background:rgba(255,255,255,.25)}}
 .ctn{{max-width:1100px;margin:0 auto;padding:24px}}
 .card{{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:24px;margin-bottom:24px}}
 .card h2{{font-size:17px;font-weight:700;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e2e8f0}}
 .form-grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;align-items:end}}
 .fg label{{display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px}}
 .fg input,.fg select{{width:100%;padding:9px 12px;border:2px solid #e2e8f0;border-radius:8px;font-size:14px;outline:none}}
-.fg input:focus,.fg select:focus{{border-color:#2563eb}}
 .btn-add{{background:#16a34a;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}}
-.btn-add:hover{{background:#15803d}}
 table{{width:100%;border-collapse:collapse;margin-top:8px}}
 th{{text-align:left;padding:12px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0}}
 td{{padding:12px;font-size:14px;border-bottom:1px solid #f1f5f9}}
@@ -386,14 +477,12 @@ td.vn{{font-weight:600}}
 .inp-sm{{padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px;width:120px}}
 .btn-s{{background:#2563eb;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}}
 .btn-d{{background:#dc2626;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}}
-.ok{{background:#dcfce7;color:#16a34a;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px}}
-.err2{{background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:14px;margin-bottom:16px}}
 </style>
 </head>
 <body>
 <div class="hdr">
 <h1>Gerenciar Usuarios</h1>
-<a href="/">Voltar ao Dashboard</a>
+<a href="/dashboard">Voltar ao Dashboard</a>
 </div>
 <div class="ctn">
 <div class="card">
@@ -421,9 +510,6 @@ td.vn{{font-weight:600}}
 </div>
 </body>
 </html>'''
-
-
-
 def gerar_dashboard_html(pedidos, entregas):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str)
@@ -441,135 +527,6 @@ def gerar_dashboard_html(pedidos, entregas):
     else:
         mind = date.today().replace(day=1).isoformat()
         maxd = date.today().isoformat()
-
-PAGINA_INICIAL = '''<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real Açaí Distribuidora</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;}
-header{display:flex;justify-content:space-between;align-items:center;padding:18px 40px;background:rgba(20,8,40,0.95);position:fixed;width:100%;top:0;z-index:100;}
-.logo{font-size:20px;font-weight:800;color:#c084fc;letter-spacing:1px;}
-.logo span{color:#fff;}
-nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weight:500;transition:color .2s;}
-nav a:hover{color:#c084fc;}
-.btn-login{border:2px solid #c084fc;color:#c084fc;padding:8px 18px;border-radius:25px;text-decoration:none;font-size:14px;font-weight:600;transition:all .2s;}
-.btn-login:hover{background:#c084fc;color:#1a0b2e;}
-.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(26,11,46,0.82),rgba(26,11,46,0.92)),url('https://dashboardrealmais.onrender.com/static/hero.jpg') center/cover no-repeat;}
-.badge{background:rgba(192,132,252,0.15);border:1px solid #c084fc;color:#e9d5ff;padding:8px 22px;border-radius:30px;font-size:14px;margin-bottom:22px;letter-spacing:0.5px;}
-.hero h1{font-size:44px;font-weight:800;max-width:800px;line-height:1.2;margin-bottom:18px;}
-.hero h1 .destaque{color:#c084fc;}
-.hero p{font-size:18px;color:#d8b4fe;max-width:620px;line-height:1.7;margin-bottom:36px;}
-.btn-pedido{background:#22c55e;color:#fff;padding:15px 42px;border-radius:30px;text-decoration:none;font-weight:700;font-size:17px;box-shadow:0 6px 20px rgba(34,197,94,0.35);transition:transform .2s,box-shadow .2s;}
-.btn-pedido:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(34,197,94,0.5);}
-.versiculo{margin-top:55px;font-style:italic;color:#a78bfa;font-size:15px;letter-spacing:0.5px;}
-#historia{padding:90px 40px;text-align:center;background:#221040;}
-#historia h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
-#historia h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
-#historia p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
-#contato{padding:80px 40px;text-align:center;background:#1a0b2e;}
-#contato h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
-.contato-item{display:inline-block;margin:0 25px;padding:18px 28px;background:#221040;border-radius:12px;border:1px solid #3b1a6b;}
-.contato-item a{color:#fff;text-decoration:none;font-size:16px;}
-.contato-item .icone{font-size:24px;display:block;margin-bottom:6px;}
-footer{text-align:center;padding:35px 20px;background:#12061f;color:#a78bfa;font-size:14px;border-top:1px solid #2a1448;}
-@media(max-width:768px){
-header{flex-direction:column;gap:12px;padding:15px 20px;position:static;}
-nav a{margin:0 8px;font-size:13px;}
-.hero h1{font-size:30px;}
-.hero{padding-top:60px;}
-.contato-item{display:block;margin:12px auto;max-width:320px;}
-}
-</style>
-</head>
-<body>
-<header>
-<div class="logo">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
-<nav>
-<a href="/">Início</a>
-<a href="#historia">Nossa História</a>
-<a href="/dashboard">Vendedoras</a>
-<a href="#pedido">Faça seu Pedido</a>
-<a href="#contato">Contato</a>
-</nav>
-<a href="/login" class="btn-login">Login / Dashboard</a>
-</header>
-
-<section class="hero">
-<span class="badge">✨ Tradição em cada detalhe</span>
-<h1>A tradição e qualidade que você conhece, <span class="destaque">agora também online</span></h1>
-<p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
-<a href="#pedido" class="btn-pedido">🛒 Fazer Pedido</a>
-<div class="versiculo">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
-</section>
-
-<section id="historia">
-<h2>Nossa História</h2>
-<p>Há mais de 5 anos a Real Açaí Distribuidora leva qualidade, tradição e sabor autêntico para as famílias da nossa região. Começamos com um sonho e um propósito: entregar o melhor açaí e os melhores produtos, com agilidade e carinho em cada entrega. Hoje somos referência em distribuição, atendendo clientes de onde estiverem — sempre com a qualidade que você já conhece.</p>
-</section>
-
-<section id="contato">
-<h2>Fale Conosco</h2>
-<div class="contato-item">
-<span class="icone">📸</span>
-<a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a>
-</div>
-<div class="contato-item">
-<span class="icone">📞</span>
-<a href="tel:+5585996987832">(85) 99698-7832</a>
-</div>
-<div class="contato-item">
-<span class="icone">📞</span>
-<a href="tel:+5585985242498">(85) 98524-2498</a>
-</div>
-</section>
-
-<footer>
-<p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
-<p style="margin-top:8px;color:#7c6ba8;">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</p>
-</footer>
-</body>
-</html>'''
-PAGINA_LOGIN = '''<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — Real Açaí Distribuidora</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;display:flex;justify-content:center;align-items:center;min-height:100vh;}
-.card{background:#221040;padding:40px 35px;border-radius:16px;width:360px;text-align:center;border:1px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
-.logo{font-size:20px;font-weight:800;color:#c084fc;margin-bottom:6px;letter-spacing:1px;}
-.sub{font-size:13px;color:#a78bfa;margin-bottom:28px;}
-.card h2{color:#c084fc;font-size:24px;margin-bottom:22px;}
-input{width:100%;padding:13px 15px;margin:9px 0;border:1px solid #3b1a6b;border-radius:8px;background:#2a1448;color:#fff;font-size:15px;outline:none;}
-input:focus{border-color:#c084fc;}
-button{width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:14px;transition:background .2s;}
-button:hover{background:#6d28d9;}
-.erro{color:#f87171;margin-top:14px;font-size:14px;}
-.voltar{display:block;margin-top:20px;color:#a78bfa;text-decoration:none;font-size:13px;}
-.voltar:hover{color:#c084fc;}
-</style>
-</head>
-<body>
-<div class="card">
-<div class="logo">REAL AÇAÍ DISTRIBUIDORA</div>
-<div class="sub">Acesso restrito — Vendedoras</div>
-<h2>Login</h2>
-<form method="POST" action="/login">
-<input type="text" name="user" placeholder="Usuário" required autofocus>
-<input type="password" name="senha" placeholder="Senha" required>
-<button type="submit">Entrar</button>
-</form>
-{% if erro %}<div class="erro">{{ erro }}</div>{% endif %}
-<a href="/" class="voltar">← Voltar para o site</a>
-</div>
-</body>
-</html>'''
     html = r'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -608,93 +565,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 .kg{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
 .kc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;border-left:4px solid var(--pri)}
 .kc:hover{box-shadow:var(--shl)}.kc.grn{border-left-color:var(--grn)}.kc.amb{border-left-color:var(--amb)}.kc.red{border-left-color:var(--red)}.kc.pur{border-left-color:#8b5cf6}.kc.tel{border-left-color:#14b8a6}
-.kl{font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;margin-bottom:6px}
-.kv{font-size:26px;font-weight:700}.ks{font-size:12px;color:var(--mut);margin-top:4px}
-.mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:24px}
-.mc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px}.mc:hover{box-shadow:var(--shl)}
-.mc.con{grid-column:1/-1;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff}
-.mc.con .mn{color:#fff}.mc.con .ms{color:rgba(255,255,255,.8)}.mc.con .mpb{background:rgba(255,255,255,.2)}.mc.con .mv{color:#fff}.mc.con .mf{color:rgba(255,255,255,.8)}
-.mh{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.ma{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
-.mn{font-size:15px;font-weight:700}.ms{font-size:12px;color:var(--mut);margin-top:2px}
-.mpb{background:var(--brd);border-radius:12px;height:28px;overflow:hidden;margin-bottom:10px}
-.mpf{height:100%;border-radius:12px;display:flex;align-items:center;padding-left:12px;color:#fff;font-size:12px;font-weight:700;min-width:0}
-.mst{display:flex;justify-content:space-between;align-items:center;font-size:13px}
-.mv{font-weight:700;font-size:16px}.mv.at{color:var(--grn)}
-.msb{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase}
-.sb{background:var(--gl);color:var(--grn)}.sp{background:var(--al);color:var(--amb)}.sl{background:var(--rl);color:var(--red)}.sn{background:#f1f5f9;color:var(--mut)}
-.mf{font-size:12px;color:var(--mut);margin-top:6px}
-.cg{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
-@media(max-width:900px){.cg{grid-template-columns:1fr}}
-.cc{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px}.cc.f{grid-column:1/-1}
-.ct{font-size:16px;font-weight:700;margin-bottom:16px}.cw{position:relative;height:320px}
-.tc2{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:24px}
-.tc2 table{width:100%;border-collapse:collapse}
-.tc2 th{text-align:left;padding:12px 14px;font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;border-bottom:2px solid var(--brd)}
-.tc2 td{padding:12px 14px;font-size:14px;border-bottom:1px solid var(--brd)}
-.tc2 tr:hover td{background:#f8fafc}.tc2 tr:last-child td{border-bottom:none}
-.vn{font-weight:600}.vc{font-weight:600;color:var(--grn)}
-.pb{background:var(--brd);border-radius:6px;height:8px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:8px}
-.pf{height:100%;border-radius:6px}
-.nd{text-align:center;padding:48px;color:var(--mut);font-size:16px}
-.mp{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 24px;margin-bottom:24px;display:none}.mp.act{display:block}
-.mer{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--brd)}.mer:last-child{border-bottom:none}
-.mel{flex:1;font-weight:600;font-size:14px}
-.cig{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.footer{background:#1e293b;color:#94a3b8;padding:32px 24px;text-align:center;font-size:13px;line-height:1.8}
-.footer strong{color:#e2e8f0}
-.footer-divider{border:none;border-top:1px solid #334155;margin:16px auto;max-width:600px}
-.footer-section{margin:8px 0}
-.footer-name{font-size:15px;font-weight:700;color:#fff;letter-spacing:1px}
-.footer-tags{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin:4px 0}
-.footer-copy{font-size:12px;color:#64748b;margin-top:12px}
-</style>
-</head>
-<body>
-<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
-<div class="tabs" id="navTabs">
-<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
-<button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
-<button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
-</div>
-<div class="ctn">
-<div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
-<div class="fb" id="fbEmp" style="padding:14px 24px"><div class="ef"><span class="el">Empresa:</span><button class="be act" onclick="se('todos',this)">Consolidado</button><button class="be" onclick="se('REAL MAIS',this)">REAL MAIS</button><button class="be" onclick="se('GP DISTRIBUIDORA',this)">GP</button></div></div>
-<div id="tc-com" class="tc act">
-<div class="kg" id="kpi"></div>
-<div class="st">Metas - <span id="mesL"></span> <button id="btnMeta" class="bp" onclick="tmp()" style="background:var(--al);color:var(--amb);float:right;display:none">Gerenciar Metas</button></div>
-<div class="mg" id="metas"></div>
-<div class="mp" id="mp"><div class="ct">Editar Metas</div><div id="mef"></div><div style="margin-top:16px;display:flex;gap:8px"><button class="bs" onclick="svm()">Salvar</button><button class="bp" onclick="tmp()">Cancelar</button></div></div>
-<div class="cg"><div class="cc"><div class="ct">Faturamento por Vendedora</div><div class="cw"><canvas id="cV"></canvas></div></div><div class="cc"><div class="ct">Faturamento Diario</div><div class="cw"><canvas id="cD"></canvas></div></div><div class="cc f"><div class="ct">Participacao</div><div class="cw"><canvas id="cK"></canvas></div></div></div>
-<div class="tc2"><div class="ct">Detalhamento por Vendedora</div><table><thead><tr><th>Vendedora</th><th>Emp</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>Meta</th><th>%Meta</th><th>%Tot</th></tr></thead><tbody id="tb"></tbody></table></div>
-</div>
-<div id="tc-log" class="tc">
-<div class="kg" id="kpiE"></div>
-<div class="cg"><div class="cc"><div class="ct">Entregas por Entregador</div><div class="cw"><canvas id="cE"></canvas></div></div><div class="cc"><div class="ct">Entregas por Dia</div><div class="cw"><canvas id="cED"></canvas></div></div></div>
-<div class="tc2"><div class="ct">Detalhamento de Entregas</div><table><thead><tr><th>Entregador</th><th>Total</th><th>%</th></tr></thead><tbody id="tbE"></tbody></table></div>
-</div>
-<div id="tc-con" class="tc">
-<div class="kg" id="kpiC"></div>
-<div class="st">CMV - Custo de Mercadorias Vendidas</div>
-<div class="fb" style="flex-direction:column;align-items:flex-start;gap:12px">
-<div class="cig"><div class="fg"><label>Estoque Inicial</label><input type="date" id="cmvDi"></div><div class="fg"><label>Estoque Final</label><input type="date" id="cmvDf"></div></div>
-<div class="cig"><div class="fg"><label>Est.Ini RM</label><input type="number" id="cmvEi" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Ini GP</label><input type="number" id="cmvEig" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin RM</label><input type="number" id="cmvEf" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin GP</label><input type="number" id="cmvEfg" step="0.01" placeholder="0" style="width:160px"></div></div>
-<button class="ba" onclick="calcCMV()">Calcular CMV</button>
-</div>
-<div id="cmvR" style="margin-bottom:24px"></div>
-<div class="tc2"><div class="ct">Faturamento por Empresa</div><table><thead><tr><th>Empresa</th><th>Faturamento</th><th>Vendas</th><th>Ticket</th><th>%</th></tr></thead><tbody id="tbEmp"></tbody></table></div>
-</div>
-<div class="footer">
-<div class="footer-name">Gabriel Freitas</div>
-<div class="footer-tags">Desenvolvedor Autonomo - Desenvolvimento - Sistemas - Automacao - Inteligencia de Dados</div>
-<hr class="footer-divider">
-<div class="footer-section">Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial <strong>VHSYS</strong>, utilizado pela Real Acai Distribuidora.</div>
-<div class="footer-section">Sistema desenvolvido exclusivamente para: <strong>REAL ACAI DISTRIBUIDORA</strong></div>
-<hr class="footer-divider">
-<div class="footer-copy">(c) 2026 Real Acai Distribuidora - Todos os direitos reservados<br>Desenvolvido por Gabriel Freitas - Desenvolvedor Autonomo - v1.0.0 - Ultima atualizacao: 15/08/2026</div>
-</div>
-</div>
-<script>
 const TP=__DJ__,TE=__EJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 var ef='todos';
 var cV,cD,cK,cE,cED;
@@ -704,7 +574,6 @@ var USER_SECTOR='__USER_SECTOR__';
 var USER_ROLE='__USER_ROLE__';
 var IS_MASTER=__IS_MASTER__;
 function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
-var cV,cD,cK,cE,cED;
 function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
 function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
 function nn(n){if(!n)return 'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim().toUpperCase()}
@@ -713,7 +582,34 @@ function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigi
 function fd(i){var p=i.split('-');return p[2]+'/'+p[1]}
 function cd(i,f){var d1=new Date(i+'T00:00:00');var d2=new Date(f+'T00:00:00');return Math.round((d2-d1)/86400000)+1}
 function fm2(mr){var p=mr.split('-');var n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return n[parseInt(p[1])-1]+' '+p[0]}
-function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display='';var bp=document.getElementById('btnMetaProd');if(bp)bp.style.display='';var bu=document.getElementById('btnUsuarios');if(bu)bu.style.display=''}renderTudo();carregarProdutos()}
+function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display='';var bu=document.getElementById('btnUsuarios');if(bu)bu.style.display=''}renderTudo()}
+function se(e,b){ef=e;document.querySelectorAll('.be').forEach(function(x){x.classList.remove('act')});if(b)b.classList.add('act');af()}
+function ph(){var h=new Date().toISOString().split('T')[0];sd(h,h)}
+function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
+function pm(){var a=new Date();var i=new Date(a.getFullYear(),a.getMonth(),1);var f=new Date(a.getFullYear(),a.getMonth()+1,0);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
+function pt(){sd('__MIN__','__MAX__')}
+function sd(i,f){document.getElementById('dIni').value=i;document.getElementById('dFim').value=f;af()}
+function af(){renderTudo()}
+function rk(ft,qv,tm,dp,nv){var el='Consolidado';if(ef==='REAL MAIS')el='REAL MAIS';else if(ef==='GP DISTRIBUIDORA')el='GP';document.getElementById('kpi').innerHTML='<div class="kc"><div class="kl">Faturamento '+el+'</div><div class="kv">'+fm(ft)+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc grn"><div class="kl">Vendas</div><div class="kv">'+qv+'</div><div class="ks">nao cancelados</div></div><div class="kc amb"><div class="kl">Ticket Medio</div><div class="kv">'+fm(tm)+'</div><div class="ks">por venda</div></div><div class="kc pur"><div class="kl">Vendedoras Ativas</div><div class="kv">'+nv+'</div><div class="ks">no periodo</div></div>'}
+function rc(ped,ft,qv){var pe={};TP.forEach(function(p){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;if(p.data>=ini&&p.data<=fim){if(!pe[p.empresa])pe[p.empresa]={f:0,q:0};pe[p.empresa].f+=p.valor;pe[p.empresa].q+=1}});var ftT=Object.values(pe).reduce(function(s,v){return s+v.f},0),qvT=Object.values(pe).reduce(function(s,v){return s+v.q},0);document.getElementById('kpiC').innerHTML='<div class="kc"><div class="kl">Faturamento Consolidado</div><div class="kv">'+fm(ftT)+'</div><div class="ks">'+qvT+' venda(s)</div></div><div class="kc grn"><div class="kl">Faturamento REAL MAIS</div><div class="kv">'+fm(pe['REAL MAIS']?pe['REAL MAIS'].f:0)+'</div><div class="ks">'+(pe['REAL MAIS']?pe['REAL MAIS'].q:0)+' venda(s)</div></div><div class="kc amb"><div class="kl">Faturamento GP DISTRIBUIDORA</div><div class="kv">'+fm(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].f:0)+'</div><div class="ks">'+(pe['GP DISTRIBUIDORA']?pe['GP DISTRIBUIDORA'].q:0)+' venda(s)</div></div><div class="kc pur"><div class="kl">Ticket Geral</div><div class="kv">'+fm(qvT>0?ftT/qvT:0)+'</div><div class="ks">consolidado</div></div>';var h='';Object.entries(pe).sort(function(a,b){return b[1].f-a[1].f}).forEach(function(entry,i){var n=entry[0],d=entry[1];var p=ftT>0?(d.f/ftT*100):0;var t=d.q>0?d.f/d.q:0;var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+n+'</td><td class="vc">'+fm(d.f)+'</td><td>'+d.q+'</td><td>'+fm(t)+'</td><td><span
+const TP=__DJ__,TE=__EJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
+var ef='todos';
+var cV,cD,cK,cE,cED;
+var currentMR='';
+function gm(mr){return METAS[mr]||{nome_mes:'',consolidada:0,vendedoras:{}}}
+var USER_SECTOR='__USER_SECTOR__';
+var USER_ROLE='__USER_ROLE__';
+var IS_MASTER=__IS_MASTER__;
+function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
+function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
+function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
+function nn(n){if(!n)return 'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim().toUpperCase()}
+function bm(n){var m=gm(currentMR);var nl=n.toLowerCase();var k=Object.keys(m.vendedoras).find(function(x){return x.toLowerCase()===nl});return k?m.vendedoras[k]:0}
+function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fd(i){var p=i.split('-');return p[2]+'/'+p[1]}
+function cd(i,f){var d1=new Date(i+'T00:00:00');var d2=new Date(f+'T00:00:00');return Math.round((d2-d1)/86400000)+1}
+function fm2(mr){var p=mr.split('-');var n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return n[parseInt(p[1])-1]+' '+p[0]}
+function init(){filtrarAbas();if(IS_MASTER){var b=document.getElementById('btnMeta');if(b)b.style.display='';var bu=document.getElementById('btnUsuarios');if(bu)bu.style.display=''}renderTudo()}
 function se(e,b){ef=e;document.querySelectorAll('.be').forEach(function(x){x.classList.remove('act')});if(b)b.classList.add('act');af()}
 function ph(){var h=new Date().toISOString().split('T')[0];sd(h,h)}
 function p7(){var f=new Date();var i=new Date();i.setDate(i.getDate()-6);sd(i.toISOString().split('T')[0],f.toISOString().split('T')[0])}
@@ -743,23 +639,79 @@ window.addEventListener('DOMContentLoaded',init);
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
+@app.route('/')
+def index():
+    return PAGINA_INICIAL
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         user = request.form.get('user', '').strip()
         senha = request.form.get('senha', '')
-        usuarios = carregar_usuarios()
-        for u in usuarios:
-            if u.get('login') == user and u.get('senha') == senha:
-                session['user'] = user
-                return redirect('/dashboard')
-        return render_template_string(PAGINA_LOGIN, erro='Usuário ou senha inválidos')
-    return render_template_string(PAGINA_LOGIN, erro='')
+        users = carregar_usuarios()
+        u = users.get(user)
+        if u and u["senha_hash"] == hash_senha(senha):
+            session['user'] = user
+            return redirect('/dashboard')
+        return login_page_html("Usuario ou senha invalidos.")
+    return login_page_html()
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
+
+@app.route('/dashboard')
+@requer_login
+def dashboard():
+    u = usuario_logado()
+    with _cache_lock:
+        if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
+            html = _cache["html"]
+            html = html.replace("__USER_NAME__", u["nome"])
+            html = html.replace("__USER_SECTOR__", u["setor"])
+            html = html.replace("__USER_ROLE__", u["role"])
+            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+            return html
+    print("[DEBUG] Cache vazio, buscando dados...", flush=True)
+    try:
+        todos = buscar_dados_mes_atual()
+        ent = ler_dados_entregas()
+        html = gerar_dashboard_html(todos, ent)
+        html = html.replace("__USER_NAME__", u["nome"])
+        html = html.replace("__USER_SECTOR__", u["setor"])
+        html = html.replace("__USER_ROLE__", u["role"])
+        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+        with _cache_lock:
+            _cache["timestamp"] = time.time()
+            _cache["html"] = html
+        return html
+    except Exception as e:
+        return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
+
+@app.route('/atualizar')
+def forcar_atualizacao():
+    with _cache_lock:
+        _cache["timestamp"] = 0
+        _cache["html"] = ""
+    return "<script>window.location.href='/dashboard';</script>"
+
+@app.route('/logo')
+def logo():
+    caminhos = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
+        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
+        'Logo_Real_Distribuidora.png',
+        '/app/Logo_Real_Distribuidora.png',
+    ]
+    for c in caminhos:
+        if os.path.isfile(c):
+            return send_file(c, mimetype='image/png')
+    matches = glob.glob('**/*ogo*.png', recursive=True)
+    if matches:
+        return send_file(matches[0], mimetype='image/png')
+    pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
+    return Response(pixel, mimetype='image/png')
 
 @app.route('/admin/usuarios')
 @requer_admin_master
@@ -815,37 +767,6 @@ def admin_trocar_senha():
         users[username]["senha_hash"] = hash_senha(nova)
         salvar_usuarios(users)
     return redirect('/admin/usuarios?ok=senha')
-
-
-
-
-@app.route('/logo')
-def logo():
-    caminhos = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logo_Real_Distribuidora.png'),
-        os.path.join(os.getcwd(), 'Logo_Real_Distribuidora.png'),
-        'Logo_Real_Distribuidora.png',
-        '/app/Logo_Real_Distribuidora.png',
-    ]
-    for c in caminhos:
-        if os.path.isfile(c):
-            return send_file(c, mimetype='image/png')
-    matches = glob.glob('**/*ogo*.png', recursive=True)
-    if matches:
-        return send_file(matches[0], mimetype='image/png')
-    pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
-    return Response(pixel, mimetype='image/png')
-
-@app.route('/')
-def index():
-    return render_template_string(PAGINA_INICIAL)
-
-@app.route('/atualizar')
-def forcar_atualizacao():
-    with _cache_lock:
-        _cache["timestamp"] = 0
-        _cache["html"] = ""
-    return "<script>window.location.href='/';</script>"
 
 @app.route('/buscar_periodo')
 def buscar_periodo_endpoint():
@@ -918,3 +839,7 @@ def api_metas():
         _cache["timestamp"] = 0
         _cache["html"] = ""
     return jsonify({"status": "ok"})
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
