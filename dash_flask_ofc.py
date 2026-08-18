@@ -1061,7 +1061,7 @@ def login():
         u = users.get(user)
         
         if u and u["senha"] == senha:
-            nome_user['user'] = user
+            session['user'] = user
             return redirect('/dashboard')
         return login_page_html("Usuario ou senha invalidos.")
     return login_page_html()
