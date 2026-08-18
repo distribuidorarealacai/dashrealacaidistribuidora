@@ -1052,13 +1052,7 @@ def login():
         return login_page_html("Usuario ou senha invalidos.")
     return login_page_html()
 
-def nome_user():
-    if 'user' not in session:
-        return None
-    usuarios = carregar_usuarios()
-    users = {u["login"]: u for u in usuarios}
-    u = users.get(nome_user['user'])
-    return u
+
 
 @app.route('/logout')
 def logout():
