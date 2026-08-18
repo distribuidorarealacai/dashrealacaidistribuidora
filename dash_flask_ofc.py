@@ -723,7 +723,11 @@ import threading
 
 _atualizando_cache = False
 
-def atualizar_cache_background(meses=3, forcar=False):
+import threading
+
+_atualizando_cache = False
+
+def atualizar_cache_background(meses=1, forcar=False):
     global _atualizando_cache
     with _cache_lock:
         if _atualizando_cache and not forcar:
@@ -732,9 +736,16 @@ def atualizar_cache_background(meses=3, forcar=False):
     
     try:
         hoje = date.today()
-        # Por padrão busca apenas 3 meses (rápido)
-        di = (hoje.replace(day=1) - timedelta(days=meses * 30)).isoformat()
+        # Por padrão busca apenas o mês atual (muito mais rápido)
+        if meses == 1:
+            di = hoje.replace(day=1).isoformat()
+        elif meses == 3:
+            di = (hoje.replace(day=1) - timedelta(days=90)).isoformat()
+        else:
+            di = (hoje.replace(day=1) - timedelta(days=365)).isoformat()
         df = hoje.isoformat()
+        
+        print(f"[DEBUG] Buscando dados de {di} a {df} ({meses} mes(es))", flush=True)
         
         todos_pedidos = []
         for emp in EMPRESAS:
@@ -743,6 +754,7 @@ def atualizar_cache_background(meses=3, forcar=False):
                 pedidos = listar_pedidos_periodo(di, df, emp, headers)
                 processados = processar_pedidos(pedidos, emp)
                 todos_pedidos.extend(processados)
+                print(f"[DEBUG] {emp.get('nome','?')}: {len(processados)} pedidos", flush=True)
             except Exception as e:
                 print(f"[DEBUG] Erro empresa {emp.get('nome','?')}: {e}", flush=True)
         
@@ -761,6 +773,8 @@ def atualizar_cache_background(meses=3, forcar=False):
             _cache["html"] = html
             _cache["periodo_meses"] = meses
             _atualizando_cache = False
+        
+        print(f"[DEBUG] Cache atualizado: {len(todos_pedidos)} pedidos totais", flush=True)
     except Exception as e:
         print(f"[DEBUG] Erro cache background: {e}", flush=True)
         with _cache_lock:
@@ -771,7 +785,6 @@ def dashboard():
     if not session.get('user'):
         return redirect('/login')
     
-    # Verifica se o usuário quer busca estendida (12 meses)
     busca_longa = request.args.get('periodo', '') == 'completo'
     
     with _cache_lock:
@@ -782,34 +795,18 @@ def dashboard():
     
     agora = time.time()
     
-    # Se tem cache válido para o período solicitado, retorna instantaneamente
+    # Se tem cache, retorna instantaneamente
     if html_cache:
-        if busca_longa:
-            # Se pediu período completo e o cache é de 3 meses, mostra loading
-            if periodo_cache < 12:
-                if not _atualizando:
-                    threading.Thread(target=atualizar_cache_background, args=(12,), daemon=True).start()
-                return LOADING_HTML
-            # Cache já é de 12 meses — retorna direto
-            if (agora - ts) > CACHE_TEMPO_SEGUNDOS and not _atualizando:
-                threading.Thread(target=atualizar_cache_background, args=(12,), daemon=True).start()
-            return html_cache
-        else:
-            # Busca padrão (3 meses) — retorna do cache instantaneamente
-            if periodo_cache == 3 and (agora - ts) < CACHE_TEMPO_SEGUNDOS:
-                return html_cache
-            if periodo_cache == 3:
-                if not _atualizando:
-                    threading.Thread(target=atualizar_cache_background, args=(3,), daemon=True).start()
-                return html_cache
-            # Cache é de 12 meses mas usuário quer 3 meses — busca 3 meses
+        if busca_longa and periodo_cache < 12:
             if not _atualizando:
-                threading.Thread(target=atualizar_cache_background, args=(3,), daemon=True).start()
-            return html_cache if html_cache else LOADING_HTML
+                threading.Thread(target=atualizar_cache_background, args=(12,), daemon=True).start()
+            return LOADING_HTML
+        if (agora - ts) > CACHE_TEMPO_SEGUNDOS and not _atualizando:
+            threading.Thread(target=atualizar_cache_background, args=(1,), daemon=True).start()
+        return html_cache
     
-    # Primeiro acesso — sem cache — mostra loading
-    meses_busca = 12 if busca_longa else 3
-    threading.Thread(target=atualizar_cache_background, args=(meses_busca,), daemon=True).start()
+    # Primeiro acesso — sem cache — busca mês atual e mostra loading
+    threading.Thread(target=atualizar_cache_background, args=(1,), daemon=True).start()
     return LOADING_HTML
 
 LOADING_HTML = '''<!DOCTYPE html>
@@ -828,13 +825,12 @@ h2{margin-bottom:10px} p{opacity:0.8}
 <body><div>
 <h2>Carregando Dashboard...</h2>
 <div class="loader"></div>
-<p>Buscando dados das empresas. Aguarde.</p>
+<p>Buscando dados do mes atual. Aguarde.</p>
 </div>
 <script>
-setTimeout(function(){ window.location.reload(); }, 12000);
+setTimeout(function(){ window.location.reload(); }, 15000);
 </script>
 </body></html>'''
-
 
 def gerar_dashboard_html(pedidos, entregas, produtos):
     def safe_json(obj):
