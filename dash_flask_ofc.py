@@ -607,7 +607,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <body>
 <div class="card">
 <div class="logo">
-<img src="imagem_frente.jpeg" alt="Logo Real Acai" onerror="this.style.display='none'" style="max-height:100px;max-width:220px;object-fit:contain">
+<img src="imagem_frente" alt="Logo Real Acai" onerror="this.style.display='none'" style="max-height:100px;max-width:220px;object-fit:contain">
 <h1>Real Acai Distribuidora</h1>
 <p>Dashboard Gerencial</p>
 </div>
@@ -819,7 +819,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="imagem_frente.jpeg" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
+<div class="hdr"><div class="hdr-logo"><img src="imagem_frente" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
 <div class="tabs" id="navTabs">
 <button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
 <button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
@@ -1016,7 +1016,7 @@ _produtos_lock = threading.Lock()
 
 @app.route('/imagem-fachada')
 def imagem_fachada():
-    return send_file('imagem_frente.jpeg', mimetype='image/jpeg')
+    return send_file('imagem_frente', mimetype='image/jpeg')
 
 
 
@@ -1067,7 +1067,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 .header .btn-login:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(168,85,247,0.4)}
 
 /* HERO */
-.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(135deg,rgba(20,10,30,0.88),rgba(76,29,149,0.75)),url('imagem_frente.jpeg') center/cover no-repeat fixed}
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;background:linear-gradient(135deg,rgba(20,10,30,0.88),rgba(76,29,149,0.75)),url('imagem_frente') center/cover no-repeat fixed}
 .hero-content{text-align:center;max-width:750px;padding:0 20px}
 .hero-content .badge-top{display:inline-block;background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.4);color:#c4b5fd;padding:6px 18px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:20px}
 .hero-content h1{color:#fff;font-size:44px;font-weight:800;line-height:1.2;margin-bottom:18px;text-shadow:0 2px 20px rgba(0,0,0,0.5)}
@@ -1165,7 +1165,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 <!-- HEADER -->
 <div class="header">
 <div class="logo">
-<img src="imagem_frente.jpeg" alt="Real Açai Distribuidora">
+<img src="imagem_frente" alt="Real Açai Distribuidora">
 <span>REAL AÇAÍ DISTRIBUIDORA</span>
 </div>
 <nav>
@@ -1202,7 +1202,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;c
 <h2>Conheça um pouco de <span>nossa história</span></h2>
 <div class="historia-grid">
 <div class="img-box">
-<img src="imagem_frente.jpeg" alt="Real Açai Distribuidora">
+<img src="imagem_frente" alt="Real Açai Distribuidora">
 <div class="verse-overlay">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
 </div>
 <div class="texto">
