@@ -395,8 +395,6 @@ nav a{margin:0 8px;font-size:13px;}
 <a href="#local">Localização</a>
 </nav>
 <a href="/login" class="btn-login">Login / Dashboard</a>
-<a href="/admin/login" class="btn-admin">🔐 Admin</a>
-<a href="/motorista/login" class="btn-motorista">🚚 Sou Motorista</a>
 </header>
 
 <section class="hero">
@@ -502,6 +500,8 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <div class="field"><label>Usuario</label><input type="text" name="user" autofocus required></div>
 <div class="field"><label>Senha</label><input type="password" name="senha" required></div>
 <button class="btn" type="submit">Entrar</button>
+<a href="/admin/login" class="btn-admin">🔐 Admin</a>
+<a href="/motorista/login" class="btn-motorista">🚚 Sou Motorista</a>
 </form>
 <div class="hint">Acesso restrito a colaboradores autorizados</div>
 <a href="/" class="voltar">← Voltar para o site</a>
