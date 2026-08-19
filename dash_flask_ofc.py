@@ -966,9 +966,10 @@ def motorista_painel():
         veiculo_id = request.form['veiculo_id']
         litros = request.form['litros']
         km = request.form['km']
+        valor = request.form['valor']
         data = request.form.get('data', '')
-        db.execute('INSERT INTO abastecimentos (motorista_id, veiculo_id, data, litros, km) VALUES (?,?,?,?,?)',
-                   (m['id'], veiculo_id, data, litros, km))
+        db.execute('INSERT INTO abastecimentos (motorista_id, veiculo_id, data, litros, km, valor) VALUES (?,?,?,?,?,?)',
+                   (m['id'], veiculo_id, data, litros, km, valor))
         db.commit()
         return redirect('/motorista/painel')
 
@@ -976,7 +977,8 @@ def motorista_painel():
         LEFT JOIN veiculos v ON a.veiculo_id = v.id
         WHERE a.motorista_id = ? ORDER BY a.id DESC''', (m['id'],)).fetchall()
     resumo = db.execute('''SELECT COUNT(*) as qtd, COALESCE(SUM(litros),0) as total_litros,
-        COALESCE(SUM(km),0) as total_km FROM abastecimentos WHERE motorista_id = ?''', (m['id'],)).fetchone()
+        COALESCE(SUM(km),0) as total_km, COALESCE(SUM(valor),0) as total_valor
+        FROM abastecimentos WHERE motorista_id = ?''', (m['id'],)).fetchone()
     db.close()
     return f'''<!DOCTYPE html><html><head><title>Painel do Motorista</title>
     <style>
@@ -1002,16 +1004,18 @@ def motorista_painel():
     </select>
     <input name="litros" type="number" step="0.01" placeholder="Litros abastecidos" required>
     <input name="km" type="number" placeholder="Km no momento do abastecimento" required>
+    <input name="valor" type="number" step="0.01" placeholder="Valor abastecido (R$)" required>
     <input name="data" type="date">
     <button>Salvar Abastecimento</button></form></div>
     <div class="cards">
     <div class="kpi"><div class="num">{resumo["qtd"]}</div>Abastecimentos</div>
+    <div class="kpi"><div class="num">R$ {resumo["total_valor"]:.2f}</div>Valor Total</div>
     <div class="kpi"><div class="num">{resumo["total_litros"]:.2f} L</div>Total Litros</div>
     <div class="kpi"><div class="num">{resumo["total_km"]:.0f} km</div>Total Km</div>
     </div>
     <h2>Meus Abastecimentos</h2>
-    <table><tr><th>Data</th><th>Veículo</th><th>Litros</th><th>Km</th></tr>
-    {"".join(f'<tr><td>{a["data"] or "-"}</td><td>{a["placa"]} - {a["descricao"]}</td><td>{a["litros"]}</td><td>{a["km"]}</td></tr>' for a in abastecimentos) if abastecimentos else '<tr><td colspan="4">Nenhum abastecimento registrado ainda.</td></tr>'}
+    <table><tr><th>Data</th><th>Veículo</th><th>Litros</th><th>Km</th><th>Valor</th></tr>
+    {"".join(f'<tr><td>{a["data"] or "-"}</td><td>{a["placa"]} - {a["descricao"]}</td><td>{a["litros"]}</td><td>{a["km"]}</td><td>R$ {a["valor"]:.2f}</td></tr>' for a in abastecimentos) if abastecimentos else '<tr><td colspan="5">Nenhum abastecimento registrado ainda.</td></tr>'}
     </table>
     </body></html>'''
 
