@@ -831,19 +831,15 @@ def fachada():
 
 @app.route('/insta_img')
 @app.route('/INSTA_IMG')
-def inst_img():
-    nome = 'INSTA_IMG'
-    caminhos = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), nome + '.png'),
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), nome + '.jpg'),
-        os.path.join(os.getcwd(), nome + '.png'),
-        nome + '.png',
-        '/app/' + nome + '.png',
-    ]
-    for c in caminhos:
-        if os.path.isfile(c):
-            return send_file(c)
-    matches = glob.glob('**/INSTA_IMG.*', recursive=True)
+def insta_img():
+    import re as _re
+    # Procura em qualquer subpasta, ignorando maiúsculas/minúsculas
+    for raiz, _, arquivos in os.walk(os.path.dirname(os.path.abspath(__file__))):
+        for arq in arquivos:
+            if _re.match(r'^insta_img\.(png|jpe?g|webp|gif)$', arq, _re.IGNORECASE):
+                return send_file(os.path.join(raiz, arq))
+    # Fallback: busca recursiva com glob case-insensitive
+    matches = [p for p in glob.glob('**/*', recursive=True) if _re.match(r'^insta_img\.(png|jpe?g|webp|gif)$', os.path.basename(p), _re.IGNORECASE)]
     if matches:
         return send_file(matches[0])
     return Response('', status=404)
