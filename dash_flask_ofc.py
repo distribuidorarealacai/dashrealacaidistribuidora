@@ -318,13 +318,6 @@ nav a:hover{color:#c084fc;}
 .vend-card .tel{font-size:14px;color:#e9d5ff;margin-bottom:14px;}
 .btn-wa{display:inline-block;background:#25d366;color:#fff;text-decoration:none;padding:10px 20px;border-radius:25px;font-size:14px;font-weight:700;transition:background .2s;}
 .btn-wa:hover{background:#1ebe5b;}
-<section id="contato" class="sec">
-<h2>Fale Conosco</h2>
-<p>Siga nosso Instagram e acompanhe as novidades!</p>
-<a href="https://instagram.com/realacaidistribuidora" target="_blank" style="text-decoration:none;" target="_blank" style="text-decoration:none;">
-<img src="/static/INSTA_IMG.png" alt="Instagram Real Açaí" style="width:100%;max-width:420px;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
-</a>
-</section>
 #local{background:#1a0b2e;}
 .mapa{max-width:900px;margin:30px auto 0;border-radius:16px;overflow:hidden;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
 .mapa iframe{width:100%;height:400px;border:0;display:block;}
