@@ -309,12 +309,9 @@ nav a:hover{color:#c084fc;}
 #fachada img{width:100%;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
 #vendedoras{background:#1a0b2e;}
 .vend-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-top:30px;}
-.vend-card{background:#221040;border:1px solid #3b1a6b;border-radius:14px;padding:28px 24px;width:250px;text-align:center;transition:transform .2s,box-shadow .2s;}
-.vend-card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,0.4);}
-.vend-card .avatar{width:64px;height:64px;border-radius:50%;background:#7c3aed;color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
-.vend-card h3{font-size:17px;color:#fff;margin-bottom:4px;}
-.vend-card .cargo{font-size:13px;color:#a78bfa;margin-bottom:10px;}
-.vend-card .tel{font-size:14px;color:#e9d5ff;margin-bottom:14px;}
+<div class="vend-card"><img class="avatar" src="/foto_vendedora/ANA_RUTH.png" alt="Ana Ruth"><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div><a class="btn-wa" href="https://wa.me/5585992885598?text=Ol%C3%A1%20Ana%20Ruth!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><img class="avatar" src="/foto_vendedora/ISA_LIMA.png" alt="Isa Lima"><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div><a class="btn-wa" href="https://wa.me/5585991873115?text=Ol%C3%A1%20Isa!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><img class="avatar" src="/foto_vendedora/SIMONE_MOURA.png" alt="Simone Moura"><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div><a class="btn-wa" href="https://wa.me/5585985242498?text=Ol%C3%A1%20Simone!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
 .btn-wa{display:inline-block;background:#25d366;color:#fff;text-decoration:none;padding:10px 20px;border-radius:25px;font-size:14px;font-weight:700;transition:background .2s;}
 .btn-wa:hover{background:#1ebe5b;}
 #contato{background:#221040;}
@@ -430,6 +427,7 @@ nav a{margin:0 8px;font-size:13px;}
 </div>
 <p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
 <div class="copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</div>
+<div class="copy">Desenvolvido por Gabriel Freitas</div>
 </footer>
 </body>
 </html>'''
@@ -825,6 +823,26 @@ def fachada():
     if matches:
         return send_file(matches[0])
     return Response('', status=404)
+
+@app.route('/foto_vendedora/<nome>')
+def foto_vendedora(nome):
+    import re as _re
+    nome_limpo = _re.sub(r'[^A-Za-z0-9_.-]', '', nome)
+    caminhos = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), nome_limpo),
+        os.path.join(os.getcwd(), nome_limpo),
+        nome_limpo,
+        '/app/' + nome_limpo,
+    ]
+    for c in caminhos:
+        if os.path.isfile(c):
+            return send_file(c)
+    matches = glob.glob('**/' + nome_limpo, recursive=True)
+    if matches:
+        return send_file(matches[0])
+    return Response('', status=404)
+
+
 
 
 @app.route('/logo')
