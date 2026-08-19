@@ -55,6 +55,22 @@ def init_motorista_db():
 init_motorista_db()
 
 def corrigir_estrutura_banco():
+    db = get_db()
+    try:
+        colunas_veic = [r[1] for r in db.execute('PRAGMA table_info(veiculos)').fetchall()]
+        colunas_mot = [r[1] for r in db.execute('PRAGMA table_info(motoristas)').fetchall()]
+        if 'km_atual' in colunas_veic or 'veiculo_id' in colunas_mot:
+            db.close()
+            os.remove('motoristas.db')
+            init_motorista_db()
+            return
+    except Exception:
+        pass
+    db.close()
+
+corrigir_estrutura_banco()
+
+def corrigir_estrutura_banco():
     """Recria o banco se a tabela motoristas tiver a estrutura antiga (com veiculo_id)."""
     db = get_db()
     try:
@@ -884,7 +900,7 @@ def admin_add_veiculo():
     descricao = request.form['descricao'].strip()
     db = get_db()
     try:
-        db.execute('INSERT INTO veiculos (placa, descricao, km_atual) VALUES (?,?,?)', (placa, descricao, km))
+        db.execute('INSERT INTO veiculos (placa, descricao) VALUES (?,?)', (placa, descricao))
         db.commit()
     except sqlite3.IntegrityError:
         pass
