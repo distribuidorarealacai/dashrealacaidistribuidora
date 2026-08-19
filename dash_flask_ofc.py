@@ -285,7 +285,8 @@ PAGINA_INICIAL = '''<!DOCTYPE html>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;}
 header{display:flex;justify-content:space-between;align-items:center;padding:18px 40px;background:rgba(20,8,40,0.95);position:fixed;width:100%;top:0;z-index:100;}
-.logo{font-size:20px;font-weight:800;color:#c084fc;letter-spacing:1px;}
+.logo{display:flex;align-items:center;font-size:20px;font-weight:800;color:#c084fc;letter-spacing:1px;}
+.logo img{height:45px;margin-right:10px;border-radius:8px;background:#fff;padding:4px 8px;object-fit:contain;}
 .logo span{color:#fff;}
 nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weight:500;transition:color .2s;}
 nav a:hover{color:#c084fc;}
@@ -299,47 +300,60 @@ nav a:hover{color:#c084fc;}
 .btn-pedido{background:#22c55e;color:#fff;padding:15px 42px;border-radius:30px;text-decoration:none;font-weight:700;font-size:17px;box-shadow:0 6px 20px rgba(34,197,94,0.35);transition:transform .2s,box-shadow .2s;}
 .btn-pedido:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(34,197,94,0.5);}
 .versiculo{margin-top:55px;font-style:italic;color:#a78bfa;font-size:15px;letter-spacing:0.5px;}
-#historia{padding:90px 40px;text-align:center;background:#221040;}
-#historia h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
-#historia h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
-#historia p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
-<section id="fachada" style="padding:60px 40px;text-align:center;background:#1a0b2e;">
-<h2 style="color:#c084fc;font-size:30px;margin-bottom:24px;">Nossa Loja</h2>
-<div style="max-width:900px;margin:0 auto;">
-<img src="/static/imagem_frente.jpg" alt="Fachada da Loja" style="width:100%;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
-</div>
-</section>
-#vendedoras{padding:80px 40px;text-align:center;background:#1a0b2e;}
-#vendedoras h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
-.vend-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;}
-.vend-card{background:#221040;border:1px solid #3b1a6b;border-radius:14px;padding:28px 24px;width:240px;text-align:center;}
+.sec{padding:80px 40px;text-align:center;}
+.sec h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
+.sec h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
+.sec p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
+#historia{background:#221040;}
+#fachada{background:#1a0b2e;}
+#fachada img{width:100%;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+#vendedoras{background:#1a0b2e;}
+.vend-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-top:30px;}
+.vend-card{background:#221040;border:1px solid #3b1a6b;border-radius:14px;padding:28px 24px;width:250px;text-align:center;transition:transform .2s,box-shadow .2s;}
+.vend-card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,0.4);}
 .vend-card .avatar{width:64px;height:64px;border-radius:50%;background:#7c3aed;color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
 .vend-card h3{font-size:17px;color:#fff;margin-bottom:4px;}
 .vend-card .cargo{font-size:13px;color:#a78bfa;margin-bottom:10px;}
-.vend-card .tel{font-size:14px;color:#e9d5ff;}
-#contato{padding:80px 40px;text-align:center;background:#1a0b2e;}
-#contato h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
-.contato-item{display:inline-block;margin:0 25px;padding:18px 28px;background:#221040;border-radius:12px;border:1px solid #3b1a6b;}
-.contato-item a{color:#fff;text-decoration:none;font-size:16px;}
-.contato-item .icone{font-size:24px;display:block;margin-bottom:6px;}
-footer{text-align:center;padding:35px 20px;background:#12061f;color:#a78bfa;font-size:14px;border-top:1px solid #2a1448;}
+.vend-card .tel{font-size:14px;color:#e9d5ff;margin-bottom:14px;}
+.btn-wa{display:inline-block;background:#25d366;color:#fff;text-decoration:none;padding:10px 20px;border-radius:25px;font-size:14px;font-weight:700;transition:background .2s;}
+.btn-wa:hover{background:#1ebe5b;}
+#contato{background:#221040;}
+.contato-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-top:30px;}
+.contato-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 28px;background:#1a0b2e;border-radius:12px;border:1px solid #3b1a6b;min-width:220px;}
+.contato-item .icone{font-size:28px;}
+.contato-item a{color:#fff;text-decoration:none;font-size:16px;font-weight:600;}
+.contato-item a:hover{color:#c084fc;}
+.contato-item .sub{font-size:12px;color:#a78bfa;}
+#local{background:#1a0b2e;}
+.mapa{max-width:900px;margin:30px auto 0;border-radius:16px;overflow:hidden;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
+.mapa iframe{width:100%;height:400px;border:0;display:block;}
+footer{text-align:center;padding:40px 20px;background:#12061f;color:#a78bfa;font-size:14px;border-top:1px solid #2a1448;}
+footer .social{display:flex;justify-content:center;gap:16px;margin-bottom:16px;}
+footer .social a{color:#c084fc;text-decoration:none;font-size:14px;font-weight:600;}
+footer .social a:hover{color:#fff;}
+footer .contato-rodape{margin-bottom:12px;font-size:13px;color:#a78bfa;}
+footer .contato-rodape a{color:#e9d5ff;text-decoration:none;}
+footer .contato-rodape a:hover{color:#c084fc;}
+footer .copy{margin-top:16px;font-size:12px;color:#7c6ba8;}
 @media(max-width:768px){
 header{flex-direction:column;gap:12px;padding:15px 20px;position:static;}
 nav a{margin:0 8px;font-size:13px;}
 .hero h1{font-size:30px;}
 .hero{padding-top:60px;}
-.contato-item{display:block;margin:12px auto;max-width:320px;}
+.contato-item{min-width:100%;}
+.mapa iframe{height:300px;}
 }
 </style>
 </head>
 <body>
 <header>
-<div class="logo"><img src="/logo" alt="Logo Real Açaí" style="height:45px;margin-right:10px;vertical-align:middle;border-radius:8px;background:#fff;padding:4px 8px;object-fit:contain;">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
+<div class="logo"><img src="/logo" alt="Logo Real Açaí">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
 <nav>
 <a href="/">Início</a>
 <a href="#historia">Nossa História</a>
 <a href="#vendedoras">Vendedoras</a>
 <a href="#contato">Contato</a>
+<a href="#local">Localização</a>
 </nav>
 <a href="/login" class="btn-login">Login / Dashboard</a>
 </header>
@@ -348,43 +362,74 @@ nav a{margin:0 8px;font-size:13px;}
 <span class="badge">✨ Tradição em cada detalhe</span>
 <h1>A tradição e qualidade que você conhece, <span class="destaque">agora também online</span></h1>
 <p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
-<a href="#contato" class="btn-pedido">🛒 Fazer Pedido</a>
+<a href="https://wa.me/5585996987832?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido" class="btn-pedido" target="_blank">🛒 Fazer Pedido</a>
 <div class="versiculo">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
 </section>
 
-<section id="historia">
+<section id="historia" class="sec">
 <h2>Nossa História</h2>
 <p>Há mais de 5 anos a Real Açaí Distribuidora leva qualidade, tradição e sabor autêntico para as famílias da nossa região. Começamos com um sonho e um propósito: entregar o melhor açaí e os melhores produtos, com agilidade e carinho em cada entrega. Hoje somos referência em distribuição, atendendo clientes de onde estiverem — sempre com a qualidade que você já conhece.</p>
 </section>
 
-<section id="vendedoras">
-<h2>Nossas Consultoras de Vendas</h2>
-<div class="vend-grid">
-<div class="vend-card"><div class="avatar">AR</div><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div></div>
-<div class="vend-card"><div class="avatar">IL</div><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div></div>
-<div class="vend-card"><div class="avatar">SM</div><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div></div>
+<section id="fachada" class="sec">
+<h2>Nossa Loja</h2>
+<div style="max-width:900px;margin:0 auto;">
+<img src="/static/imagem_frente.jpg" alt="Fachada da Loja">
 </div>
 </section>
 
-<section id="contato">
+<section id="vendedoras" class="sec">
+<h2>Nossas Consultoras de Vendas</h2>
+<p>Fale diretamente com a sua consultora e faça seu pedido pelo WhatsApp!</p>
+<div class="vend-grid">
+<div class="vend-card"><div class="avatar">AR</div><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div><a class="btn-wa" href="https://wa.me/5585992885598?text=Ol%C3%A1%20Ana%20Ruth!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><div class="avatar">IL</div><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div><a class="btn-wa" href="https://wa.me/5585991873115?text=Ol%C3%A1%20Isa!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><div class="avatar">SM</div><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div><a class="btn-wa" href="https://wa.me/5585985242498?text=Ol%C3%A1%20Simone!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+</div>
+</section>
+
+<section id="contato" class="sec">
 <h2>Fale Conosco</h2>
+<div class="contato-grid">
 <div class="contato-item">
 <span class="icone">📸</span>
 <a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a>
+<div class="sub">Siga e acompanhe as novidades</div>
 </div>
 <div class="contato-item">
 <span class="icone">📞</span>
-<a href="tel:+5585996987832">(85) 99698-7832</a>
+<a href="https://wa.me/5585996987832" target="_blank">(85) 99698-7832</a>
+<div class="sub">WhatsApp / Pedidos</div>
 </div>
 <div class="contato-item">
 <span class="icone">📞</span>
-<a href="tel:+5585985242498">(85) 98524-2498</a>
+<a href="https://wa.me/5585985242498" target="_blank">(85) 98524-2498</a>
+<div class="sub">WhatsApp / Pedidos</div>
+</div>
+</div>
+</section>
+
+<section id="local" class="sec">
+<h2>Onde Estamos</h2>
+<p>Venha nos visitar ou retire seu pedido na loja.</p>
+<div class="mapa">
+<iframe src="https://share.google/OAK3vsxFBeEYWOZsA" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
 </div>
 </section>
 
 <footer>
+<div class="social">
+<a href="https://instagram.com/realacaidistribuidora" target="_blank">📸 Instagram</a>
+<a href="https://wa.me/5585996987832" target="_blank">💬 WhatsApp</a>
+</div>
+<div class="contato-rodape">
+📞 <a href="tel:+5585996987832">(85) 99698-7832</a> &nbsp;|&nbsp; <a href="tel:+5585985242498">(85) 98524-2498</a>
+</div>
+<div class="contato-rodape">
+📍 Fortaleza - CE
+</div>
 <p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
-<p style="margin-top:8px;color:#7c6ba8;">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</p>
+<div class="copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</div>
 </footer>
 </body>
 </html>'''
