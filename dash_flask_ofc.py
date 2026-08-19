@@ -451,7 +451,7 @@ nav a{margin:0 8px;font-size:13px;}
 </div>
 <div class="footer-bottom">
 <p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
-<p class="dev">Desenvolvido por <strong>Gabriel Freitas</strong> — Desenvolvedor Autônomo · V2.0 © 2026 Real Açaí Distribuidora</p>
+<p class="dev">Desenvolvido por <strong>Gabriel Freitas</strong> — Desenvolvedor Autônomo · V2.5 © 2026 Real Açaí Distribuidora</p>
 </div>
 </footer>
 </body>
@@ -866,7 +866,6 @@ def admin_add_veiculo():
         return redirect('/admin/login')
     placa = request.form['placa'].upper().strip()
     descricao = request.form['descricao'].strip()
-    km = request.form.get('km_atual', 0)
     db = get_db()
     try:
         db.execute('INSERT INTO veiculos (placa, descricao, km_atual) VALUES (?,?,?)', (placa, descricao, km))
@@ -883,7 +882,6 @@ def admin_add_motorista():
     nome = request.form['nome'].strip()
     usuario = request.form['usuario'].strip()
     senha = request.form['senha']
-    veiculo_id = request.form['veiculo_id']
     db = get_db()
     try:
         db.execute('INSERT INTO motoristas (nome, usuario, senha_hash, veiculo_id) VALUES (?,?,?,?)',
