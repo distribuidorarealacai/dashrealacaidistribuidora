@@ -292,7 +292,7 @@ nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weigh
 nav a:hover{color:#c084fc;}
 .btn-login{border:2px solid #c084fc;color:#c084fc;padding:8px 18px;border-radius:25px;text-decoration:none;font-size:14px;font-weight:600;transition:all .2s;}
 .btn-login:hover{background:#c084fc;color:#1a0b2e;}
-.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(91,45,145,0.72),rgba(91,45,145,0.82)),url('/static/imagem_frente.jpg') center/cover no-repeat;background-color:#5b2d91;}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(91,45,145,0.72),rgba(91,45,145,0.82)),url('/fachada') center/cover no-repeat;background-color:#5b2d91;}
 .badge{background:rgba(192,132,252,0.15);border:1px solid #c084fc;color:#e9d5ff;padding:8px 22px;border-radius:30px;font-size:14px;margin-bottom:22px;letter-spacing:0.5px;}
 .hero h1{font-size:44px;font-weight:800;max-width:800px;line-height:1.2;margin-bottom:18px;}
 .hero h1 .destaque{color:#c084fc;}
@@ -374,7 +374,7 @@ nav a{margin:0 8px;font-size:13px;}
 <section id="fachada" class="sec">
 <h2>Nossa Loja</h2>
 <div style="max-width:900px;margin:0 auto;">
-<img src="/static/imagem_frente.jpg" alt="Real Acai">
+<img src="/fachada" alt="Fachada da Loja">
 </div>
 </section>
 
@@ -413,7 +413,7 @@ nav a{margin:0 8px;font-size:13px;}
 <h2>Onde Estamos</h2>
 <p>Venha nos visitar ou retire seu pedido na loja.</p>
 <div class="mapa">
-<iframe src="https://www.google.com/maps/place/Real+A%C3%A7a%C3%AD+Distribuidora/@-3.7090711,-38.5666977,17z/data=!3m1!4b1!4m6!3m5!1s0x7c749618f3b79a5:0xb6de799b58f8fd00!8m2!3d-3.7090711!4d-38.5666977!16s%2Fg%2F11ld5c55q9?entry=ttu&g_ep=EgoyMDI2MDgxNi4wIKXMDSoASAFQAw%3D%3D" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+<iframe src="https://maps.app.goo.gl/c553jPwsrXSvJs487" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
 </div>
 </section>
 
@@ -808,6 +808,24 @@ def forcar_atualizacao():
         _cache["timestamp"] = 0
         _cache["html"] = ""
     return "<script>window.location.href='/dashboard';</script>"
+
+@app.route('/fachada')
+def fachada():
+    caminhos = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'imagem_frente.jpg'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'imagem_frente.png'),
+        os.path.join(os.getcwd(), 'imagem_frente.jpg'),
+        'imagem_frente.jpg',
+        '/app/imagem_frente.jpg',
+    ]
+    for c in caminhos:
+        if os.path.isfile(c):
+            return send_file(c)
+    matches = glob.glob('**/imagem_frente.*', recursive=True)
+    if matches:
+        return send_file(matches[0])
+    return Response('', status=404)
+
 
 @app.route('/logo')
 def logo():
