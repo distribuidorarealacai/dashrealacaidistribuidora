@@ -881,12 +881,12 @@ def admin_motoristas():
     <input name="senha" type="password" placeholder="Senha" required>
     <button>Salvar Motorista</button></form></div>
     <div class="card"><h2>🚚 Veículos Cadastrados</h2>
-    <table><tr><th>ID</th><th>Placa</th><th>Descrição</th></tr>
-    {"".join(f'<tr><td>{v["id"]}</td><td>{v["placa"]}</td><td>{v["descricao"]}</td></tr>' for v in veiculos)}
+    <table><tr><th>ID</th><th>Placa</th><th>Descrição</th><th>Ações</th></tr>
+    {"".join(f'<tr><td>{v["id"]}</td><td>{v["placa"]}</td><td>{v["descricao"]}</td><td><a href="/admin/veiculo/editar/{v["id"]}" style="color:#38bdf8;">✏️ Editar</a> | <a href="/admin/veiculo/excluir/{v["id"]}" style="color:#f87171;" onclick="return confirm(\'Excluir este veículo?\')">🗑️ Excluir</a></td></tr>' for v in veiculos)}
     </table></div>
     <div class="card"><h2>👤 Motoristas Cadastrados</h2>
-    <table><tr><th>ID</th><th>Nome</th><th>Usuário</th></tr>
-    {"".join(f'<tr><td>{m["id"]}</td><td>{m["nome"]}</td><td>{m["usuario"]}</td></tr>' for m in motoristas)}
+    <table><tr><th>ID</th><th>Nome</th><th>Usuário</th><th>Ações</th></tr>
+    {"".join(f'<tr><td>{m["id"]}</td><td>{m["nome"]}</td><td>{m["usuario"]}</td><td><a href="/admin/motorista/editar/{m["id"]}" style="color:#38bdf8;">✏️ Editar</a> | <a href="/admin/motorista/excluir/{m["id"]}" style="color:#f87171;" onclick="return confirm(\'Excluir este motorista?\')">🗑️ Excluir</a></td></tr>' for m in motoristas)}
     </table></div>
     </body></html>'''
 
@@ -1020,7 +1020,95 @@ def motorista_logout():
     session.pop('motorista_id', None)
     return redirect('/motorista/login')
 
+@app.route('/admin/veiculo/excluir/<int:id>')
+def admin_excluir_veiculo(id):
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    db = get_db()
+    db.execute('DELETE FROM veiculos WHERE id = ?', (id,))
+    db.commit()
+    db.close()
+    return redirect('/admin/motoristas')
 
+@app.route('/admin/veiculo/editar/<int:id>', methods=['GET', 'POST'])
+def admin_editar_veiculo(id):
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    db = get_db()
+    if request.method == 'POST':
+        placa = request.form['placa'].upper().strip()
+        descricao = request.form['descricao'].strip()
+        db.execute('UPDATE veiculos SET placa = ?, descricao = ? WHERE id = ?', (placa, descricao, id))
+        db.commit()
+        db.close()
+        return redirect('/admin/motoristas')
+    v = db.execute('SELECT * FROM veiculos WHERE id = ?', (id,)).fetchone()
+    db.close()
+    return f'''<!DOCTYPE html><html><head><title>Editar Veículo</title>
+    <style>
+    body{{font-family:Arial;background:#12061f;color:#fff;padding:30px;}}
+    h1{{color:#c084fc;}}
+    .card{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;max-width:400px;}}
+    input{{width:100%;padding:10px;margin:6px 0;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}}
+    button{{background:#7c3aed;color:#fff;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:700;}}
+    a{{color:#c084fc;}}
+    </style></head><body>
+    <h1>✏️ Editar Veículo</h1>
+    <div class="card">
+    <form method="POST">
+    <input name="placa" value="{v["placa"]}" required>
+    <input name="descricao" value="{v["descricao"]}">
+    <button>Salvar Alterações</button></form>
+    <a href="/admin/motoristas">← Voltar</a></div>
+    </body></html>'''
+
+@app.route('/admin/motorista/excluir/<int:id>')
+def admin_excluir_motorista(id):
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    db = get_db()
+    db.execute('DELETE FROM motoristas WHERE id = ?', (id,))
+    db.commit()
+    db.close()
+    return redirect('/admin/motoristas')
+
+@app.route('/admin/motorista/editar/<int:id>', methods=['GET', 'POST'])
+def admin_editar_motorista(id):
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    db = get_db()
+    if request.method == 'POST':
+        nome = request.form['nome'].strip()
+        usuario = request.form['usuario'].strip()
+        senha = request.form['senha']
+        if senha:
+            db.execute('UPDATE motoristas SET nome = ?, usuario = ?, senha_hash = ? WHERE id = ?',
+                       (nome, usuario, generate_password_hash(senha), id))
+        else:
+            db.execute('UPDATE motoristas SET nome = ?, usuario = ? WHERE id = ?', (nome, usuario, id))
+        db.commit()
+        db.close()
+        return redirect('/admin/motoristas')
+    m = db.execute('SELECT * FROM motoristas WHERE id = ?', (id,)).fetchone()
+    db.close()
+    return f'''<!DOCTYPE html><html><head><title>Editar Motorista</title>
+    <style>
+    body{{font-family:Arial;background:#12061f;color:#fff;padding:30px;}}
+    h1{{color:#c084fc;}}
+    .card{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;max-width:400px;}}
+    input{{width:100%;padding:10px;margin:6px 0;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}}
+    button{{background:#7c3aed;color:#fff;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:700;}}
+    a{{color:#c084fc;}}
+    </style></head><body>
+    <h1>✏️ Editar Motorista</h1>
+    <div class="card">
+    <form method="POST">
+    <input name="nome" value="{m["nome"]}" required>
+    <input name="usuario" value="{m["usuario"]}" required>
+    <input name="senha" type="password" placeholder="Nova senha (deixe em branco para manter)">
+    <button>Salvar Alterações</button></form>
+    <a href="/admin/motoristas">← Voltar</a></div>
+    </body></html>'''
 
 
 @app.route('/')
