@@ -374,7 +374,7 @@ nav a{margin:0 8px;font-size:13px;}
 <section id="fachada" class="sec">
 <h2>Nossa Loja</h2>
 <div style="max-width:900px;margin:0 auto;">
-<img src="/static/imagem_frente.jpg" alt="Fachada da Loja">
+<img src="/static/imagem_frente.jpg" alt="Real Acai">
 </div>
 </section>
 
@@ -413,7 +413,7 @@ nav a{margin:0 8px;font-size:13px;}
 <h2>Onde Estamos</h2>
 <p>Venha nos visitar ou retire seu pedido na loja.</p>
 <div class="mapa">
-<iframe src="https://share.google/OAK3vsxFBeEYWOZsA" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+<iframe src="https://www.google.com/maps/place/Real+A%C3%A7a%C3%AD+Distribuidora/@-3.7090711,-38.5666977,17z/data=!3m1!4b1!4m6!3m5!1s0x7c749618f3b79a5:0xb6de799b58f8fd00!8m2!3d-3.7090711!4d-38.5666977!16s%2Fg%2F11ld5c55q9?entry=ttu&g_ep=EgoyMDI2MDgxNi4wIKXMDSoASAFQAw%3D%3D" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
 </div>
 </section>
 
