@@ -308,9 +308,14 @@ nav a:hover{color:#c084fc;}
 #fachada{background:#1a0b2e;}
 #fachada img{width:100%;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
 #vendedoras{background:#1a0b2e;}
-<div class="vend-card"><img class="avatar" src="/foto_vendedora/ANA_RUTH.png" alt="Ana Ruth"><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div><a class="btn-wa" href="https://wa.me/5585992885598?text=Ol%C3%A1%20Ana%20Ruth!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
-<div class="vend-card"><img class="avatar" src="/foto_vendedora/ISA_LIMA.png" alt="Isa Lima"><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div><a class="btn-wa" href="https://wa.me/5585991873115?text=Ol%C3%A1%20Isa!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
-<div class="vend-card"><img class="avatar" src="/foto_vendedora/SIMONE_MOURA.png" alt="Simone Moura"><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div><a class="btn-wa" href="https://wa.me/5585985242498?text=Ol%C3%A1%20Simone!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+.vend-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-top:30px;}
+.vend-card{background:#221040;border:1px solid #3b1a6b;border-radius:14px;padding:28px 24px;width:250px;text-align:center;transition:transform .2s,box-shadow .2s;}
+.vend-card:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,0.4);}
+.vend-card .avatar{width:90px;height:90px;border-radius:50%;background:#7c3aed;color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;overflow:hidden;border:3px solid #c084fc;position:relative;}
+.vend-card .avatar img{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;z-index:1;}
+.vend-card h3{font-size:17px;color:#fff;margin-bottom:4px;}
+.vend-card .cargo{font-size:13px;color:#a78bfa;margin-bottom:10px;}
+.vend-card .tel{font-size:14px;color:#e9d5ff;margin-bottom:14px;}
 .btn-wa{display:inline-block;background:#25d366;color:#fff;text-decoration:none;padding:10px 20px;border-radius:25px;font-size:14px;font-weight:700;transition:background .2s;}
 .btn-wa:hover{background:#1ebe5b;}
 #contato{background:#221040;}
@@ -378,9 +383,9 @@ nav a{margin:0 8px;font-size:13px;}
 <h2>Nossas Consultoras de Vendas</h2>
 <p>Fale diretamente com a sua consultora e faça seu pedido pelo WhatsApp!</p>
 <div class="vend-grid">
-<div class="vend-card"><div class="avatar">AR</div><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div><a class="btn-wa" href="https://wa.me/5585992885598?text=Ol%C3%A1%20Ana%20Ruth!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
-<div class="vend-card"><div class="avatar">IL</div><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div><a class="btn-wa" href="https://wa.me/5585991873115?text=Ol%C3%A1%20Isa!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
-<div class="vend-card"><div class="avatar">SM</div><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div><a class="btn-wa" href="https://wa.me/5585985242498?text=Ol%C3%A1%20Simone!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><div class="avatar"><img src="/foto_vendedora/ANA_RUTH.png" alt="Ana Ruth"></div><h3>Ana Ruth</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9288-5598</div><a class="btn-wa" href="https://wa.me/5585992885598?text=Ol%C3%A1%20Ana%20Ruth!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><div class="avatar"><img src="/foto_vendedora/ISA_LIMA.png" alt="Isa Lima"></div><h3>Isa Lima</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 9187-3115</div><a class="btn-wa" href="https://wa.me/5585991873115?text=Ol%C3%A1%20Isa!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
+<div class="vend-card"><div class="avatar"><img src="/foto_vendedora/SIMONE_MOURA.png" alt="Simone Moura"></div><h3>Simone Moura</h3><div class="cargo">Consultora de Vendas</div><div class="tel">(85) 9 8524-2498</div><a class="btn-wa" href="https://wa.me/5585985242498?text=Ol%C3%A1%20Simone!%20Quero%20fazer%20um%20pedido" target="_blank">💬 WhatsApp</a></div>
 </div>
 </section>
 
