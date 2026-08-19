@@ -280,7 +280,6 @@ PAGINA_INICIAL = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real Açaí Distribuidora</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;}
@@ -467,6 +466,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <div class="card">
 <div class="logo">
 <img src="/logo" alt="Logo Real Acai" onerror="this.style.display='none'" style="max-height:100px;max-width:220px;object-fit:contain">
+<h1>Real Acai Distribuidora</h1>
 <p>Dashboard Gerencial</p>
 </div>
 {msg}
