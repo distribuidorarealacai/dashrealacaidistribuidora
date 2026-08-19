@@ -363,7 +363,7 @@ nav a{margin:0 8px;font-size:13px;}
 <span class="badge">✨ Tradição em cada detalhe</span>
 <h1>A tradição e qualidade que você conhece, <span class="destaque">agora também online</span></h1>
 <p>Há mais de 5 anos levando os melhores produtos para sua família. Faça seu pedido de onde estiver, receba com agilidade.</p>
-<a href="https://wa.me/5585996987832?text=Ol%C3%A1!%20Quero%20fazer%20um%20pedido" class="btn-pedido" target="_blank">🛒 Fazer Pedido</a>
+<a href="https://wa.me/5585992885598?text=Ol%C3%A1%20Ana%20Ruth!%20Quero%20fazer%20um%20pedido" class="btn-pedido" target="_blank">🛒 Fazer Pedido</a>
 <div class="versiculo">"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</div>
 </section>
 
@@ -467,7 +467,6 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <div class="card">
 <div class="logo">
 <img src="/logo" alt="Logo Real Acai" onerror="this.style.display='none'" style="max-height:100px;max-width:220px;object-fit:contain">
-<h1>Real Acai Distribuidora</h1>
 <p>Dashboard Gerencial</p>
 </div>
 {msg}
