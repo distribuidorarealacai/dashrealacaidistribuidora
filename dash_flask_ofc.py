@@ -280,6 +280,7 @@ PAGINA_INICIAL = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Açaí Distribuidora</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#1a0b2e;color:#fff;}
@@ -317,13 +318,15 @@ nav a:hover{color:#c084fc;}
 .vend-card .tel{font-size:14px;color:#e9d5ff;margin-bottom:14px;}
 .btn-wa{display:inline-block;background:#25d366;color:#fff;text-decoration:none;padding:10px 20px;border-radius:25px;font-size:14px;font-weight:700;transition:background .2s;}
 .btn-wa:hover{background:#1ebe5b;}
-#contato{background:#221040;}
-.contato-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-top:30px;}
-.contato-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 28px;background:#1a0b2e;border-radius:12px;border:1px solid #3b1a6b;min-width:220px;}
-.contato-item .icone{font-size:28px;}
-.contato-item a{color:#fff;text-decoration:none;font-size:16px;font-weight:600;}
-.contato-item a:hover{color:#c084fc;}
-.contato-item .sub{font-size:12px;color:#a78bfa;}
+<section id="contato" class="sec">
+<h2>Fale Conosco</h2>
+<p>Siga nosso Instagram e acompanhe as novidades!</p>
+<div class="contato-grid" style="justify-content:center;">
+<a href="https://instagram.com/realacaidistribuidora" target="_blank" style="text-decoration:none;">
+<img src="/inst_img" alt="Instagram Real Açaí" style="width:100%;max-width:420px;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+</a>
+</div>
+</section>
 #local{background:#1a0b2e;}
 .mapa{max-width:900px;margin:30px auto 0;border-radius:16px;overflow:hidden;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
 .mapa iframe{width:100%;height:400px;border:0;display:block;}
@@ -347,7 +350,7 @@ nav a{margin:0 8px;font-size:13px;}
 </head>
 <body>
 <header>
-<div class="logo"><img src="/logo" alt="Logo Real Açaí">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
+<div class="logo"><img src="/logo" alt="Logo Real Açaí"></div>
 <nav>
 <a href="/">Início</a>
 <a href="#historia">Nossa História</a>
@@ -823,6 +826,24 @@ def fachada():
         if os.path.isfile(c):
             return send_file(c)
     matches = glob.glob('**/imagem_frente.*', recursive=True)
+    if matches:
+        return send_file(matches[0])
+    return Response('', status=404)
+
+@app.route('/inst_img')
+def inst_img():
+    nome = 'INST_IMG'
+    caminhos = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), nome + '.png'),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), nome + '.jpg'),
+        os.path.join(os.getcwd(), nome + '.png'),
+        nome + '.png',
+        '/app/' + nome + '.png',
+    ]
+    for c in caminhos:
+        if os.path.isfile(c):
+            return send_file(c)
+    matches = glob.glob('**/INST_IMG.*', recursive=True)
     if matches:
         return send_file(matches[0])
     return Response('', status=404)
