@@ -18,7 +18,7 @@ import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # ⚠️ TROQUE ESTA SENHA pela senha do Admin Master
-ADMIN_SENHA = 'admin123'
+ADMIN_SENHA = 'Xd@132429'
 
 def get_db():
     db = sqlite3.connect('motoristas.db')
