@@ -413,7 +413,7 @@ nav a{margin:0 8px;font-size:13px;}
 <h2>Onde Estamos</h2>
 <p>Venha nos visitar ou retire seu pedido na loja.</p>
 <div class="mapa">
-<iframe src="https://maps.app.goo.gl/c553jPwsrXSvJs487" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+<iframe src="https://maps.google.com/maps?q=Av.%20Leste%20Oeste%2C%203833%20-%20Cristo%20Redentor%2C%20Fortaleza%20-%20CE%2C%2060010-450&t=&z=16&ie=UTF8&iwloc=&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
 </div>
 </section>
 
