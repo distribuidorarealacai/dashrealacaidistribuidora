@@ -829,10 +829,10 @@ def fachada():
         return send_file(matches[0])
     return Response('', status=404)
 
-@app.route('/inst_img')
-@app.route('/INST_IMG')
+@app.route('/insta_img')
+@app.route('/INSTA_IMG')
 def inst_img():
-    nome = 'INST_IMG'
+    nome = 'INSTA_IMG'
     caminhos = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), nome + '.png'),
         os.path.join(os.path.dirname(os.path.abspath(__file__)), nome + '.jpg'),
@@ -843,7 +843,7 @@ def inst_img():
     for c in caminhos:
         if os.path.isfile(c):
             return send_file(c)
-    matches = glob.glob('**/INST_IMG.*', recursive=True)
+    matches = glob.glob('**/INSTA_IMG.*', recursive=True)
     if matches:
         return send_file(matches[0])
     return Response('', status=404)
