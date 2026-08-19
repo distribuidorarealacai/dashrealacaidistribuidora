@@ -291,7 +291,7 @@ nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weigh
 nav a:hover{color:#c084fc;}
 .btn-login{border:2px solid #c084fc;color:#c084fc;padding:8px 18px;border-radius:25px;text-decoration:none;font-size:14px;font-weight:600;transition:all .2s;}
 .btn-login:hover{background:#c084fc;color:#1a0b2e;}
-.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(135deg,#2a1448 0%,#1a0b2e 100%);}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(26,11,46,0.78),rgba(26,11,46,0.9)),url('/static/imagem_frente.jpg') center/cover no-repeat;background-color:#1a0b2e;}
 .badge{background:rgba(192,132,252,0.15);border:1px solid #c084fc;color:#e9d5ff;padding:8px 22px;border-radius:30px;font-size:14px;margin-bottom:22px;letter-spacing:0.5px;}
 .hero h1{font-size:44px;font-weight:800;max-width:800px;line-height:1.2;margin-bottom:18px;}
 .hero h1 .destaque{color:#c084fc;}
@@ -303,6 +303,12 @@ nav a:hover{color:#c084fc;}
 #historia h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
 #historia h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
 #historia p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
+<section id="fachada" style="padding:60px 40px;text-align:center;background:#1a0b2e;">
+<h2 style="color:#c084fc;font-size:30px;margin-bottom:24px;">Nossa Loja</h2>
+<div style="max-width:900px;margin:0 auto;">
+<img src="/static/imagem_frente.jpg" alt="Fachada da Loja" style="width:100%;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+</div>
+</section>
 #vendedoras{padding:80px 40px;text-align:center;background:#1a0b2e;}
 #vendedoras h2{color:#c084fc;font-size:30px;margin-bottom:30px;}
 .vend-grid{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;}
@@ -328,7 +334,7 @@ nav a{margin:0 8px;font-size:13px;}
 </head>
 <body>
 <header>
-<div class="logo">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
+<div class="logo"><img src="/logo" alt="Logo Real Açaí" style="height:45px;margin-right:10px;vertical-align:middle;border-radius:8px;background:#fff;padding:4px 8px;object-fit:contain;">REAL <span>AÇAÍ</span> DISTRIBUIDORA</div>
 <nav>
 <a href="/">Início</a>
 <a href="#historia">Nossa História</a>
