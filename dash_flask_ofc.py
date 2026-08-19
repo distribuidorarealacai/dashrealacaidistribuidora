@@ -627,11 +627,12 @@ td.vn{{font-weight:600}}
 </div>
 </body>
 </html>'''
-def gerar_dashboard_html(pedidos, entregas):
+def gerar_dashboard_html(pedidos, entregas, abastecimentos=None):
     def safe_json(obj):
         return json.dumps(obj, ensure_ascii=False, default=str).replace('<', '\u003c').replace('>', '\u003e')
     dj = safe_json(pedidos)
     ej = safe_json(entregas)
+    aj = safe_json(abastecimentos or [])
     with _metas_lock:
         all_metas = carregar_metas()
         mj = safe_json(all_metas)
@@ -746,6 +747,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="kg" id="kpiE"></div>
 <div class="cg"><div class="cc"><div class="ct">Entregas por Entregador</div><div class="cw"><canvas id="cE"></canvas></div></div><div class="cc"><div class="ct">Entregas por Dia</div><div class="cw"><canvas id="cED"></canvas></div></div></div>
 <div class="tc2"><div class="ct">Detalhamento de Entregas</div><table><thead><tr><th>Entregador</th><th>Total</th><th>%</th></tr></thead><tbody id="tbE"></tbody></table></div>
+<div class="st">Abastecimentos - Consolidado</div>
+<div class="kg" id="kpiA"></div>
+<div class="tc2"><div class="ct">Valor de Abastecimento por Veiculo</div><table><thead><tr><th>Veiculo</th><th>Qtd</th><th>Litros</th><th>Valor Total</th></tr></thead><tbody id="tbA"></tbody></table></div>
 </div>
 <div id="tc-con" class="tc">
 <div class="kg" id="kpiC"></div>
@@ -769,7 +773,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </div>
 </div>
 <script>
-const TP=__DJ__,TE=__EJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
+const TP=__DJ__,TE=__EJ__,ABAST=__AJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 var ef='todos';
 var cV,cD,cK,cE,cED;
 var currentMR='';
@@ -778,7 +782,7 @@ var USER_SECTOR='__USER_SECTOR__';
 var USER_ROLE='__USER_ROLE__';
 var IS_MASTER=__IS_MASTER__;
 function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
-function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
+function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)var ab=ABAST.filter(function(a){return a.data>=ini&&a.data<=fim});ra(ab,ini,fim)}
 function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
 function nn(n){if(!n)return 'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim().toUpperCase()}
 function bm(n){var m=gm(currentMR);var nl=n.toLowerCase();var k=Object.keys(m.vendedoras).find(function(x){return x.toLowerCase()===nl});return k?m.vendedoras[k]:0}
@@ -800,6 +804,7 @@ function rm(vs,mr,fma,maStr){var h='';var pvMes={};TP.filter(function(p){return 
 function tmp(){var p=document.getElementById('mp');if(p.classList.contains('act')){p.classList.remove('act');return}p.classList.add('act');var metasMes=gm(currentMR);var h='<div class="fg" style="margin-bottom:12px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px">Nome do Mes</label><input type="text" id="mNome" value="'+metasMes.nome_mes+'" placeholder="Ex: Setembro 2026" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:300px"></div>';h+='<div class="fg" style="margin-bottom:12px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px">Meta Consolidada</label><input type="number" id="mCons" value="'+metasMes.consolidada+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:200px"></div>';h+='<div style="font-weight:700;margin:16px 0 8px">Metas por Vendedora</div>';var nomes=new Set();Object.keys(metasMes.vendedoras).forEach(function(n){nomes.add(n)});TP.forEach(function(p){nomes.add(nn(p.vendedor))});nomes.forEach(function(n){var v=metasMes.vendedoras[n]||0;h+='<div class="mer"><div class="mel">'+n+'</div><input type="number" data-nome="'+n+'" value="'+v+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:180px"></div>'});document.getElementById('mef').innerHTML=h}
 function svm(){var nome=document.getElementById('mNome').value;var cons=parseFloat(document.getElementById('mCons').value)||0;var vendedoras={};var inputs=document.querySelectorAll('[data-nome]');inputs.forEach(function(inp){var n=inp.getAttribute('data-nome');vendedoras[n]=parseFloat(inp.value)||0});var d={mes:currentMR,nome_mes:nome,consolidada:cons,vendedoras:vendedoras};fetch('/api/metas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){return r.json()}).then(function(x){if(x.status==='ok'){alert('Metas salvas para '+nome+'!');location.reload()}else alert('Erro: '+(x.erro||''))}).catch(function(e){alert('Erro: '+e)})}
 function re(ent,ini,fim){if(!ent||ent.length===0){document.getElementById('kpiE').innerHTML='<div class="nd">Nenhuma entrega no periodo.</div>';document.getElementById('tbE').innerHTML='';if(cE)cE.destroy();if(cED)cED.destroy();return}var pe={},pd={};ent.forEach(function(e){var nome=e.entregador;if(!pe[nome])pe[nome]=0;pe[nome]++;if(!pd[e.data])pd[e.data]=0;pd[e.data]++});var te=ent.length,er=Object.keys(pe).filter(function(n){return n!=='RETIRADA'}),ter=er.length,tr=pe['RETIRADA']||0,dp=cd(ini,fim);document.getElementById('kpiE').innerHTML='<div class="kc tel"><div class="kl">Total Entregas</div><div class="kv">'+te+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc"><div class="kl">Entregadores</div><div class="kv">'+ter+'</div><div class="ks">ativos</div></div><div class="kc amb"><div class="kl">Retiradas</div><div class="kv">'+tr+'</div><div class="ks">no balcao</div></div><div class="kc grn"><div class="kl">Media</div><div class="kv">'+(ter>0?(te/ter).toFixed(0):0)+'</div><div class="ks">por pessoa</div></div>';var x=document.getElementById('cE').getContext('2d');if(cE)cE.destroy();var eo=Object.entries(pe).sort(function(a,b){return b[1]-a[1]}).filter(function(entry){return entry[0]!=='RETIRADA'});cE=new Chart(x,{type:'bar',data:{labels:eo.map(function(x){return x[0]}),datasets:[{data:eo.map(function(x){return x[1]}),backgroundColor:eo.map(function(_,i){return C[i%C.length]+'cc'}),borderColor:eo.map(function(_,i){return C[i%C.length]}),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{stepSize:1}}}}});var x2=document.getElementById('cED').getContext('2d');if(cED)cED.destroy();var tk=Object.keys(pd).sort(),dc=[],vd=[];tk.forEach(function(d){if(pd[d]>0){dc.push(d);vd.push(pd[d])}});var g=x2.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(20,184,166,0.3)');g.addColorStop(1,'rgba(20,184,166,0.02)');cED=new Chart(x2,{type:'line',data:{labels:dc.map(fd),datasets:[{data:vd,borderColor:'#14b8a6',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#14b8a6'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1}}}}});var h='';Object.entries(pe).sort(function(a,b){return b[1]-a[1]}).forEach(function(entry,i){var n=entry[0],q=entry[1];var p=te>0?(q/te*100):0;var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+(n==='RETIRADA'?'RETIRADA':n)+'</td><td>'+q+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});document.getElementById('tbE').innerHTML=h}
+function ra(ab,ini,fim){var el=document.getElementById('kpiA');if(!ab||ab.length===0){el.innerHTML='<div class="nd">Nenhum abastecimento no periodo.</div>';document.getElementById('tbA').innerHTML='';return}var pv={},tv=0,tl=0;ab.forEach(function(a){if(a.data>=ini&&a.data<=fim){tv+=Number(a.valor)||0;tl+=Number(a.litros)||0;var k=a.placa||'-';if(!pv[k])pv[k]={n:k,q:0,l:0,v:0};pv[k].q++;pv[k].l+=Number(a.litros)||0;pv[k].v+=Number(a.valor)||0}});var qtd=Object.keys(pv).length;el.innerHTML='<div class="kc tel"><div class="kl">Valor Total Abastecido</div><div class="kv">'+fm(tv)+'</div><div class="ks">no periodo</div></div><div class="kc grn"><div class="kl">Total Litros</div><div class="kv">'+tl.toFixed(2)+' L</div><div class="ks">abastecidos</div></div><div class="kc amb"><div class="kl">Veiculos</div><div class="kv">'+qtd+'</div><div class="ks">com abastecimento</div></div>';var h='';Object.values(pv).sort(function(a,b){return b.v-a.v}).forEach(function(x,i){var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+x.n+'</td><td>'+x.q+'</td><td>'+x.l.toFixed(2)+' L</td><td class="vc">'+fm(x.v)+'</td></tr>'});document.getElementById('tbA').innerHTML=h}
 function rcV(v){var x=document.getElementById('cV').getContext('2d');if(cV)cV.destroy();cV=new Chart(x,{type:'bar',data:{labels:v.map(function(x){return x.n}),datasets:[{data:v.map(function(x){return x.f}),backgroundColor:v.map(function(_,i){return C[i%C.length]+'cc'}),borderColor:v.map(function(_,i){return C[i%C.length]}),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fm(c.raw)}}}},scales:{x:{ticks:{callback:function(v){return'R$ '+v.toLocaleString('pt-BR')}}}}}})}
 function rcD(ped){var x=document.getElementById('cD').getContext('2d');if(cD)cD.destroy();var pd={};ped.forEach(function(p){if(!pd[p.data])pd[p.data]=0;pd[p.data]+=p.valor});var dk=Object.keys(pd).sort(),vl=dk.map(function(d){return pd[d]});var g=x.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(37,99,235,0.3)');g.addColorStop(1,'rgba(37,99,235,0.02)');cD=new Chart(x,{type:'line',data:{labels:dk.map(fd),datasets:[{data:vl,borderColor:'#2563eb',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#2563eb'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fm(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return'R$ '+v.toLocaleString('pt-BR')}}}}}})}
 function rcK(v,ft){var x=document.getElementById('cK').getContext('2d');if(cK)cK.destroy();cK=new Chart(x,{type:'doughnut',data:{labels:v.map(function(x){return x.n}),datasets:[{data:v.map(function(x){return x.f}),backgroundColor:v.map(function(_,i){return C[i%C.length]}),borderColor:'#fff',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{padding:16,font:{size:13}}},tooltip:{callbacks:{label:function(c){var p=((c.raw/ft)*100).toFixed(1);return c.label+': '+fm(c.raw)+' ('+p+'%)'}}}}}})}
@@ -813,7 +818,7 @@ window.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>'''
-    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
+    html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__AJ__", aj).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
 
 
@@ -1171,6 +1176,72 @@ def forcar_atualizacao():
         _cache["timestamp"] = 0
         _cache["html"] = ""
     return "<script>window.location.href='/dashboard';</script>"
+
+@app.route('/logistica/abastecimentos')
+def logistica_abastecimentos():
+    # Período padrão: mês atual
+    hoje = datetime.now()
+    mes_atual = hoje.strftime('%Y-%m')
+    data_inicio = request.args.get('inicio', hoje.strftime('%Y-%m-01'))
+    data_fim = request.args.get('fim', hoje.strftime('%Y-%m-%d'))
+
+    db = get_db()
+    # Valor por veículo no período
+    por_veiculo = db.execute('''
+        SELECT v.placa, v.descricao,
+               COUNT(a.id) as qtd,
+               COALESCE(SUM(a.valor),0) as total_valor,
+               COALESCE(SUM(a.litros),0) as total_litros
+        FROM abastecimentos a
+        LEFT JOIN veiculos v ON a.veiculo_id = v.id
+        WHERE a.data BETWEEN ? AND ?
+        GROUP BY a.veiculo_id
+        ORDER BY total_valor DESC
+    ''', (data_inicio, data_fim)).fetchall()
+
+    # Total geral no período
+    total_geral = db.execute('''
+        SELECT COALESCE(SUM(valor),0) as total_valor,
+               COALESCE(SUM(litros),0) as total_litros,
+               COUNT(*) as qtd
+        FROM abastecimentos
+        WHERE data BETWEEN ? AND ?
+    ''', (data_inicio, data_fim)).fetchone()
+    db.close()
+
+    return f'''<!DOCTYPE html><html><head><title>Logística - Abastecimentos</title>
+    <style>
+    body{{font-family:Arial;background:#12061f;color:#fff;padding:30px;}}
+    h1{{color:#c084fc;}}h2{{color:#a78bfa;}}
+    .filtro{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;margin:20px 0;display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;}}
+    .filtro label{{color:#c084fc;font-size:13px;display:block;margin-bottom:4px;}}
+    .filtro input{{padding:10px;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}}
+    .filtro button{{background:#7c3aed;color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;}}
+    .cards{{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0;}}
+    .kpi{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;flex:1;min-width:150px;text-align:center;}}
+    .kpi .num{{font-size:26px;font-weight:800;color:#c084fc;}}
+    table{{width:100%;border-collapse:collapse;}}
+    th,td{{border:1px solid #3b1a6b;padding:10px;text-align:left;}}
+    th{{background:#2a1448;}}
+    a{{color:#c084fc;}}
+    </style></head><body>
+    <h1>📊 Logística — Abastecimentos Consolidado</h1>
+    <a href="/">← Voltar ao dashboard</a>
+    <div class="filtro"><form method="GET" style="display:flex;gap:15px;align-items:flex-end;flex-wrap:wrap;">
+    <div><label>Data início</label><input type="date" name="inicio" value="{data_inicio}"></div>
+    <div><label>Data fim</label><input type="date" name="fim" value="{data_fim}"></div>
+    <button>Buscar outro período</button>
+    </form></div>
+    <div class="cards">
+    <div class="kpi"><div class="num">R$ {total_geral["total_valor"]:.2f}</div>Valor Total Abastecido</div>
+    <div class="kpi"><div class="num">{total_geral["total_litros"]:.2f} L</div>Total Litros</div>
+    <div class="kpi"><div class="num">{total_geral["qtd"]}</div>Abastecimentos</div>
+    </div>
+    <h2>Valor de Abastecimento por Veículo</h2>
+    <table><tr><th>Veículo</th><th>Qtd</th><th>Litros</th><th>Valor Total</th></tr>
+    {"".join(f'<tr><td>{r["placa"] or "-"} - {r["descricao"] or ""}</td><td>{r["qtd"]}</td><td>{r["total_litros"]:.2f} L</td><td><strong>R$ {r["total_valor"]:.2f}</strong></td></tr>' for r in por_veiculo) if por_veiculo else '<tr><td colspan="4">Nenhum abastecimento no período.</td></tr>'}
+    </table>
+    </body></html>'''
 
 @app.route('/fachada')
 def fachada():
