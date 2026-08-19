@@ -13,6 +13,48 @@ import hashlib, secrets
 from flask import session, redirect, url_for
 app.secret_key = secrets.token_hex(32)
 
+# ===== MÓDULO SOU MOTORISTA =====
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# ⚠️ TROQUE ESTA SENHA pela senha do Admin Master
+ADMIN_SENHA = 'Xd@132429'
+
+def get_db():
+    db = sqlite3.connect('motoristas.db')
+    db.row_factory = sqlite3.Row
+    return db
+
+def init_motorista_db():
+    db = get_db()
+    db.execute('''CREATE TABLE IF NOT EXISTS veiculos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        placa TEXT UNIQUE NOT NULL,
+        descricao TEXT,
+        km_atual INTEGER DEFAULT 0
+    )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS motoristas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        usuario TEXT UNIQUE NOT NULL,
+        senha_hash TEXT NOT NULL,
+        veiculo_id INTEGER,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id)
+    )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS abastecimentos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        veiculo_id INTEGER,
+        data TEXT,
+        litros REAL,
+        valor REAL,
+        km INTEGER,
+        FOREIGN KEY (veiculo_id) REFERENCES veiculos(id)
+    )''')
+    db.commit()
+    db.close()
+
+init_motorista_db()
+
 USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.json')
 
 def hash_senha(senha):
@@ -304,6 +346,10 @@ nav a:hover{color:#c084fc;}
 .sec h2{color:#c084fc;font-size:32px;margin-bottom:18px;}
 .sec h2:after{content:'';display:block;width:60px;height:3px;background:#22c55e;margin:14px auto 0;border-radius:2px;}
 .sec p{max-width:720px;margin:0 auto;color:#d8b4fe;line-height:1.9;font-size:17px;}
+.btn-admin{display:inline-block;background:#7c3aed;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}
+.btn-admin:hover{background:#6d28d9;}
+.btn-motorista{display:inline-block;background:#25d366;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}
+.btn-motorista:hover{background:#1ebe5b;}
 #historia{background:#221040;}
 #fachada{background:#1a0b2e;}
 #fachada img{width:100%;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);}
@@ -350,6 +396,8 @@ nav a{margin:0 8px;font-size:13px;}
 <a href="#local">Localização</a>
 </nav>
 <a href="/login" class="btn-login">Login / Dashboard</a>
+<a href="/admin/login" class="btn-admin">🔐 Admin</a>
+<a href="/motorista/login" class="btn-motorista">🚚 Sou Motorista</a>
 </header>
 
 <section class="hero">
@@ -733,6 +781,194 @@ window.addEventListener('DOMContentLoaded',init);
 </html>'''
     html = html.replace("__DJ__", dj).replace("__EJ__", ej).replace("__MJ__", mj).replace("__MC__", str(mc)).replace("__DG__", dg).replace("__MIN__", mind).replace("__MAX__", maxd)
     return html
+
+
+
+# ===== LOGIN DO ADMIN MASTER =====
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        if request.form['senha'] == ADMIN_SENHA:
+            session['admin_logado'] = True
+            return redirect('/admin/motoristas')
+        return '<script>alert("Senha incorreta");window.location="/admin/login";</script>'
+    return '''<!DOCTYPE html><html><head><title>Login Admin</title>
+    <style>
+    body{font-family:Arial;background:#12061f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;}
+    .login{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:40px;width:320px;text-align:center;}
+    h1{color:#c084fc;}input{width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}
+    button{width:100%;background:#7c3aed;color:#fff;border:none;padding:12px;border-radius:8px;cursor:pointer;font-weight:700;}
+    a{color:#c084fc;display:block;margin-top:10px;}
+    </style></head><body>
+    <div class="login"><h1>🔐 Admin Master</h1>
+    <form method="POST">
+    <input name="senha" type="password" placeholder="Senha do Admin" required>
+    <button>Entrar</button></form>
+    <a href="/">← Voltar ao site</a></div></body></html>'''
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logado', None)
+    return redirect('/admin/login')
+
+
+@app.route('/admin/motoristas')
+def admin_motoristas():
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    db = get_db()
+    veiculos = db.execute('SELECT * FROM veiculos').fetchall()
+    motoristas = db.execute('''SELECT m.*, v.placa, v.descricao
+        FROM motoristas m LEFT JOIN veiculos v ON m.veiculo_id = v.id''').fetchall()
+    db.close()
+    return f'''<!DOCTYPE html><html><head><title>Admin - Motoristas</title>
+    <style>
+    body{{font-family:Arial;background:#12061f;color:#fff;padding:30px;}}
+    h1,h2{{color:#c084fc;}}
+    .card{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;margin-bottom:20px;}}
+    input,select{{width:100%;padding:10px;margin:6px 0;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}}
+    button{{background:#7c3aed;color:#fff;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:700;}}
+    button:hover{{background:#6d28d9;}}
+    table{{width:100%;border-collapse:collapse;margin-top:10px;}}
+    th,td{{border:1px solid #3b1a6b;padding:10px;text-align:left;}}
+    th{{background:#2a1448;}}
+    a{{color:#c084fc;}}
+    </style></head><body>
+    <h1>⚙️ Admin Master — Motoristas e Veículos</h1>
+    <a href="/admin/logout">Sair do admin</a> | <a href="/">← Voltar ao site</a>
+    <div class="card"><h2>➕ Cadastrar Veículo</h2>
+    <form method="POST" action="/admin/veiculo">
+    <input name="placa" placeholder="Placa (ex: ABC1234)" required>
+    <input name="descricao" placeholder="Descrição (ex: Fiorino 2019)">
+    <input name="km_atual" type="number" placeholder="Km atual" value="0">
+    <button>Salvar Veículo</button></form></div>
+    <div class="card"><h2>➕ Cadastrar Motorista</h2>
+    <form method="POST" action="/admin/motorista">
+    <input name="nome" placeholder="Nome do motorista" required>
+    <input name="usuario" placeholder="Usuário de login" required>
+    <input name="senha" type="password" placeholder="Senha" required>
+    <select name="veiculo_id" required><option value="">Selecione o veículo</option>
+    {"".join(f'<option value="{v["id"]}">{v["placa"]} - {v["descricao"]}</option>' for v in veiculos)}
+    </select>
+    <button>Salvar Motorista</button></form></div>
+    <div class="card"><h2>🚚 Veículos Cadastrados</h2>
+    <table><tr><th>ID</th><th>Placa</th><th>Descrição</th><th>Km</th></tr>
+    {"".join(f'<tr><td>{v["id"]}</td><td>{v["placa"]}</td><td>{v["descricao"]}</td><td>{v["km_atual"]}</td></tr>' for v in veiculos)}
+    </table></div>
+    <div class="card"><h2>👤 Motoristas Cadastrados</h2>
+    <table><tr><th>ID</th><th>Nome</th><th>Usuário</th><th>Veículo</th></tr>
+    {"".join(f'<tr><td>{m["id"]}</td><td>{m["nome"]}</td><td>{m["usuario"]}</td><td>{m["placa"]} - {m["descricao"]}</td></tr>' for m in motoristas)}
+    </table></div>
+    </body></html>'''
+
+@app.route('/admin/veiculo', methods=['POST'])
+def admin_add_veiculo():
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    placa = request.form['placa'].upper().strip()
+    descricao = request.form['descricao'].strip()
+    km = request.form.get('km_atual', 0)
+    db = get_db()
+    try:
+        db.execute('INSERT INTO veiculos (placa, descricao, km_atual) VALUES (?,?,?)', (placa, descricao, km))
+        db.commit()
+    except sqlite3.IntegrityError:
+        pass
+    db.close()
+    return redirect('/admin/motoristas')
+
+@app.route('/admin/motorista', methods=['POST'])
+def admin_add_motorista():
+    if not session.get('admin_logado'):
+        return redirect('/admin/login')
+    nome = request.form['nome'].strip()
+    usuario = request.form['usuario'].strip()
+    senha = request.form['senha']
+    veiculo_id = request.form['veiculo_id']
+    db = get_db()
+    try:
+        db.execute('INSERT INTO motoristas (nome, usuario, senha_hash, veiculo_id) VALUES (?,?,?,?)',
+                   (nome, usuario, generate_password_hash(senha), veiculo_id))
+        db.commit()
+    except sqlite3.IntegrityError:
+        pass
+    db.close()
+    return redirect('/admin/motoristas')
+
+
+# ===== ROTAS DO MOTORISTA =====
+@app.route('/motorista/login', methods=['GET', 'POST'])
+def motorista_login():
+    if request.method == 'POST':
+        usuario = request.form['usuario'].strip()
+        senha = request.form['senha']
+        db = get_db()
+        m = db.execute('SELECT * FROM motoristas WHERE usuario = ?', (usuario,)).fetchone()
+        db.close()
+        if m and check_password_hash(m['senha_hash'], senha):
+            session['motorista_id'] = m['id']
+            return redirect('/motorista/painel')
+        return '<script>alert("Usuário ou senha inválidos");window.location="/motorista/login";</script>'
+    return '''<!DOCTYPE html><html><head><title>Login Motorista</title>
+    <style>
+    body{font-family:Arial;background:#12061f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;}
+    .login{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:40px;width:320px;text-align:center;}
+    h1{color:#c084fc;}input{width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}
+    button{width:100%;background:#7c3aed;color:#fff;border:none;padding:12px;border-radius:8px;cursor:pointer;font-weight:700;}
+    a{color:#c084fc;display:block;margin-top:10px;}
+    </style></head><body>
+    <div class="login"><h1>🚚 Área do Motorista</h1>
+    <form method="POST">
+    <input name="usuario" placeholder="Usuário" required>
+    <input name="senha" type="password" placeholder="Senha" required>
+    <button>Entrar</button></form>
+    <a href="/">← Voltar ao site</a></div></body></html>'''
+
+@app.route('/motorista/painel')
+def motorista_painel():
+    if 'motorista_id' not in session:
+        return redirect('/motorista/login')
+    db = get_db()
+    m = db.execute('''SELECT m.*, v.placa, v.descricao FROM motoristas m
+        LEFT JOIN veiculos v ON m.veiculo_id = v.id WHERE m.id = ?''', (session['motorista_id'],)).fetchone()
+    if not m or not m['veiculo_id']:
+        return 'Motorista sem veículo vinculado.'
+    abastecimentos = db.execute('SELECT * FROM abastecimentos WHERE veiculo_id = ? ORDER BY data DESC', (m['veiculo_id'],)).fetchall()
+    resumo = db.execute('''SELECT COUNT(*) as qtd, COALESCE(SUM(valor),0) as total_valor,
+        COALESCE(SUM(litros),0) as total_litros FROM abastecimentos WHERE veiculo_id = ?''', (m['veiculo_id'],)).fetchone()
+    db.close()
+    return f'''<!DOCTYPE html><html><head><title>Painel do Motorista</title>
+    <style>
+    body{{font-family:Arial;background:#12061f;color:#fff;padding:30px;}}
+    h1{{color:#c084fc;}}h2{{color:#a78bfa;}}
+    .cards{{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0;}}
+    .kpi{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;flex:1;min-width:150px;text-align:center;}}
+    .kpi .num{{font-size:26px;font-weight:800;color:#c084fc;}}
+    table{{width:100%;border-collapse:collapse;}}
+    th,td{{border:1px solid #3b1a6b;padding:10px;text-align:left;}}
+    th{{background:#2a1448;}}
+    a{{color:#c084fc;}}
+    </style></head><body>
+    <h1>🚚 Painel — {m["nome"]}</h1>
+    <p>Veículo: <strong>{m["placa"]} — {m["descricao"]}</strong></p>
+    <a href="/motorista/logout">Sair</a>
+    <div class="cards">
+    <div class="kpi"><div class="num">{resumo["qtd"]}</div>Abastecimentos</div>
+    <div class="kpi"><div class="num">R$ {resumo["total_valor"]:.2f}</div>Valor Total</div>
+    <div class="kpi"><div class="num">{resumo["total_litros"]:.2f} L</div>Total Litros</div>
+    </div>
+    <h2>Histórico de Abastecimentos</h2>
+    <table><tr><th>Data</th><th>Litros</th><th>Valor</th><th>Km</th></tr>
+    {"".join(f'<tr><td>{a["data"]}</td><td>{a["litros"]}</td><td>R$ {a["valor"]:.2f}</td><td>{a["km"]}</td></tr>' for a in abastecimentos) if abastecimentos else '<tr><td colspan="4">Nenhum abastecimento registrado ainda.</td></tr>'}
+    </table>
+    </body></html>'''
+
+@app.route('/motorista/logout')
+def motorista_logout():
+    session.pop('motorista_id', None)
+    return redirect('/motorista/login')
+
+
 
 @app.route('/')
 def index():
