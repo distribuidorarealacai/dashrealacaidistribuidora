@@ -401,7 +401,7 @@ nav a{margin:0 8px;font-size:13px;}
 <h4>Contato</h4>
 <p>📍 Av. Leste Oeste, 3833A - Cristo Redentor, Fortaleza - CE, 60010-450</p>
 <p>✉️ <a href="mailto:financeiro@distribuidorarealacai.com.br">financeiro@distribuidorarealacai.com.br</a></p>
-<p>📞 <a href="tel:+5585996987832">(85) 99698-7832</a></p>
+<p>📞 <a href="tel:+5585985242498">(85) 98524-2498</a></p>
 </div>
 <div class="footer-col">
 <h4>Redes Sociais</h4>
