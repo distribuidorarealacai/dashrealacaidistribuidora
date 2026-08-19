@@ -322,7 +322,7 @@ nav a:hover{color:#c084fc;}
 <h2>Fale Conosco</h2>
 <p>Siga nosso Instagram e acompanhe as novidades!</p>
 <a href="https://instagram.com/realacaidistribuidora" target="_blank" style="text-decoration:none;">
-<img src="/INST_IMG" alt="Instagram Real Açaí" style="width:100%;max-width:420px;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+<img src="/INSTA_IMG" alt="Instagram Real Açaí" style="width:100%;max-width:420px;border-radius:16px;border:3px solid #3b1a6b;box-shadow:0 12px 40px rgba(0,0,0,0.5);">
 </a>
 </div>
 </section>
