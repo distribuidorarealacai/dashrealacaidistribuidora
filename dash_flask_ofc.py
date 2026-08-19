@@ -291,7 +291,7 @@ nav a{color:#e9d5ff;text-decoration:none;margin:0 14px;font-size:14px;font-weigh
 nav a:hover{color:#c084fc;}
 .btn-login{border:2px solid #c084fc;color:#c084fc;padding:8px 18px;border-radius:25px;text-decoration:none;font-size:14px;font-weight:600;transition:all .2s;}
 .btn-login:hover{background:#c084fc;color:#1a0b2e;}
-.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(26,11,46,0.78),rgba(26,11,46,0.9)),url('/static/imagem_frente.jpg') center/cover no-repeat;background-color:#1a0b2e;}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 20px 60px;background:linear-gradient(rgba(91,45,145,0.72),rgba(91,45,145,0.82)),url('/static/imagem_frente.jpg') center/cover no-repeat;background-color:#5b2d91;}
 .badge{background:rgba(192,132,252,0.15);border:1px solid #c084fc;color:#e9d5ff;padding:8px 22px;border-radius:30px;font-size:14px;margin-bottom:22px;letter-spacing:0.5px;}
 .hero h1{font-size:44px;font-weight:800;max-width:800px;line-height:1.2;margin-bottom:18px;}
 .hero h1 .destaque{color:#c084fc;}
