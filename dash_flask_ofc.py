@@ -902,6 +902,50 @@ def api_metas():
         _cache["html"] = ""
     return jsonify({"status": "ok"})
 
+@app.route('/debug_rm')
+def debug_rm():
+    BASE_URL = "https://api.vhsys.com/v2"
+    headers = {
+        "access-token": "GYMMUfafZLDUMCDQUAIaAKUblKdTEc",
+        "secret-access-token": "I5efsjIytX6XpWDx0VNSfujQ24TjW2",
+        "Content-Type": "application/json",
+        "User-Agent": "Debug/1.0"
+    }
+    saida = []
+    saida.append("<h2>DEBUG - Token Novo REAL MAIS</h2>")
+
+    # Teste 1: endpoint /pedidos/ com order (igual ao código atual)
+    try:
+        r = requests.get(f"{BASE_URL}/pedidos/", headers=headers,
+                         params={"limit": 10, "offset": 0, "order": "data_pedido", "sort": "Desc"},
+                         timeout=30)
+        saida.append(f"<h3>Teste 1: /pedidos/ (com order)</h3><p><b>STATUS:</b> {r.status_code}</p>")
+        saida.append(f"<pre>{r.text[:3000]}</pre>")
+    except Exception as e:
+        saida.append(f"<h3>Teste 1 ERRO</h3><pre>{e}</pre>")
+
+    # Teste 2: endpoint /pedidos/ SEM order (padrão da API)
+    try:
+        r2 = requests.get(f"{BASE_URL}/pedidos/", headers=headers,
+                          params={"limit": 10, "offset": 0},
+                          timeout=30)
+        saida.append(f"<h3>Teste 2: /pedidos/ (sem order)</h3><p><b>STATUS:</b> {r2.status_code}</p>")
+        saida.append(f"<pre>{r2.text[:3000]}</pre>")
+    except Exception as e:
+        saida.append(f"<h3>Teste 2 ERRO</h3><pre>{e}</pre>")
+
+    # Teste 3: endpoint /vendas-balcao/ (como a GP usa)
+    try:
+        r3 = requests.get(f"{BASE_URL}/vendas-balcao/", headers=headers,
+                          params={"limit": 10, "offset": 0},
+                          timeout=30)
+        saida.append(f"<h3>Teste 3: /vendas-balcao/</h3><p><b>STATUS:</b> {r3.status_code}</p>")
+        saida.append(f"<pre>{r3.text[:3000]}</pre>")
+    except Exception as e:
+        saida.append(f"<h3>Teste 3 ERRO</h3><pre>{e}</pre>")
+
+    return Response("<html><body style='font-family:monospace;padding:20px'>" + "".join(saida) + "</body></html>", mimetype='text/html')
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
