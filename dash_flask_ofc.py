@@ -830,6 +830,7 @@ def fachada():
     return Response('', status=404)
 
 @app.route('/inst_img')
+@app.route('/INST_IMG')
 def inst_img():
     nome = 'INST_IMG'
     caminhos = [
