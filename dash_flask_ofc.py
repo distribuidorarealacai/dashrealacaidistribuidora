@@ -486,6 +486,9 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 .btn-admin:hover{{background:#6d28d9;}}
 .btn-motorista{{display:inline-block;background:#25d366;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}}
 .btn-motorista:hover{{background:#1ebe5b;}}
+.acessos{{display:flex;gap:10px;margin-top:14px;}}
+.acesso{{flex:1;text-align:center;padding:12px;border-radius:8px;font-weight:700;text-decoration:none;font-size:14px;border:2px solid #7c3aed;color:#c084fc;background:transparent;transition:background .2s,color .2s;}}
+.acesso:hover{{background:#7c3aed;color:#fff;}}
 </style>
 </head>
 <body>
@@ -499,12 +502,12 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <form method="POST" action="/login">
 <div class="field"><label>Usuario</label><input type="text" name="user" autofocus required></div>
 <div class="field"><label>Senha</label><input type="password" name="senha" required></div>
-<button class="btn" type="submit">Entrar</button>
-<a href="/admin/login" class="btn-admin">🔐 Admin</a>
-<a href="/motorista/login" class="btn-motorista">🚚 Sou Motorista</a>
-</form>
-<div class="hint">Acesso restrito a colaboradores autorizados</div>
-<a href="/" class="voltar">← Voltar para o site</a>
+<button>Entrar</button></form>
+<div class="acessos">
+<a href="/admin/login" class="acesso">🔐 Admin</a>
+<a href="/motorista/login" class="acesso">🚚 Sou Motorista</a>
+</div>
+<a href="/">Voltar ao site</a>
 </div>
 <div class="footer">
 <div>Os dados deste sistema sao sincronizados automaticamente atraves do sistema de gestao empresarial <strong>VHSYS</strong></div>
