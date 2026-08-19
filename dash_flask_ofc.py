@@ -870,22 +870,6 @@ def admin_add_veiculo():
     db.close()
     return redirect('/admin/motoristas')
 
-@app.route('/admin/motorista', methods=['POST'])
-def admin_add_motorista():
-    if not session.get('admin_logado'):
-        return redirect('/admin/login')
-    nome = request.form['nome'].strip()
-    usuario = request.form['usuario'].strip()
-    senha = request.form['senha']
-    db = get_db()
-    try:
-        db.execute('INSERT INTO motoristas (nome, usuario, senha_hash) VALUES (?,?,?)',
-                   (nome, usuario, generate_password_hash(senha)))
-        db.commit()
-    except sqlite3.IntegrityError:
-        pass
-    db.close()
-    return redirect('/admin/motoristas')
 
 @app.route('/admin/veiculo', methods=['POST'])
 def admin_add_veiculo():
