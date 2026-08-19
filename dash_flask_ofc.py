@@ -502,7 +502,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 <form method="POST" action="/login">
 <div class="field"><label>Usuario</label><input type="text" name="user" autofocus required></div>
 <div class="field"><label>Senha</label><input type="password" name="senha" required></div>
-<button>Entrar</button></form>
+<button class="btn" type="submit">Entrar</button>
 <div class="acessos">
 <a href="/admin/login" class="acesso">🔐 Admin</a>
 <a href="/motorista/login" class="acesso">🚚 Sou Motorista</a>
