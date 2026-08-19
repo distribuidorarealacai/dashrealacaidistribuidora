@@ -382,26 +382,6 @@ nav a{margin:0 8px;font-size:13px;}
 </div>
 </section>
 
-<section id="contato" class="sec">
-<h2>Fale Conosco</h2>
-<div class="contato-grid">
-<div class="contato-item">
-<span class="icone">📸</span>
-<a href="https://instagram.com/realacaidistribuidora" target="_blank">@realacaidistribuidora</a>
-<div class="sub">Siga e acompanhe as novidades</div>
-</div>
-<div class="contato-item">
-<span class="icone">📞</span>
-<a href="https://wa.me/5585996987832" target="_blank">(85) 99698-7832</a>
-<div class="sub">WhatsApp / Pedidos</div>
-</div>
-<div class="contato-item">
-<span class="icone">📞</span>
-<a href="https://wa.me/5585985242498" target="_blank">(85) 98524-2498</a>
-<div class="sub">WhatsApp / Pedidos</div>
-</div>
-</div>
-</section>
 
 <section id="local" class="sec">
 <h2>Onde Estamos</h2>
@@ -412,19 +392,26 @@ nav a{margin:0 8px;font-size:13px;}
 </section>
 
 <footer>
-<div class="social">
-<a href="https://instagram.com/realacaidistribuidora" target="_blank">📸 Instagram</a>
-<a href="https://wa.me/5585996987832" target="_blank">💬 WhatsApp</a>
+<div class="footer-grid">
+<div class="footer-col">
+<h4>Real Açaí Distribuidora</h4>
+<p>Há mais de 5 anos levando qualidade, tradição e sabor autêntico para as famílias da nossa região.</p>
 </div>
-<div class="contato-rodape">
-📞 <a href="tel:+5585996987832">(85) 99698-7832</a> &nbsp;|&nbsp; <a href="tel:+5585985242498">(85) 98524-2498</a>
+<div class="footer-col">
+<h4>Contato</h4>
+<p>📍 Av. Leste Oeste, 3833A - Cristo Redentor, Fortaleza - CE, 60010-450</p>
+<p>✉️ <a href="mailto:financeiro@distribuidorarealacai.com.br">financeiro@distribuidorarealacai.com.br</a></p>
+<p>📞 <a href="tel:+5585996987832">(85) 99698-7832</a></p>
 </div>
-<div class="contato-rodape">
-📍 Fortaleza - CE
+<div class="footer-col">
+<h4>Redes Sociais</h4>
+<a href="https://www.instagram.com/realacaidistribuidora" target="_blank" class="footer-social">📸 Instagram</a>
 </div>
+</div>
+<div class="footer-bottom">
 <p>"Até aqui nos ajudou o Senhor" — 1 Samuel 7:12</p>
-<div class="copy">© 2026 Real Açaí Distribuidora — Todos os direitos reservados</div>
-<div class="copy">Desenvolvido por Gabriel Freitas</div>
+<p class="dev">Desenvolvido por <strong>Gabriel Freitas</strong> — Desenvolvedor Autônomo · V2.0 © 2026 Real Açaí Distribuidora</p>
+</div>
 </footer>
 </body>
 </html>'''
