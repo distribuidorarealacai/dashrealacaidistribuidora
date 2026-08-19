@@ -987,10 +987,6 @@ def motorista_logout():
     session.pop('motorista_id', None)
     return redirect('/motorista/login')
 
-@app.route('/motorista/logout')
-def motorista_logout():
-    session.pop('motorista_id', None)
-    return redirect('/motorista/login')
 
 
 
