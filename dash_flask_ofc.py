@@ -55,16 +55,14 @@ def init_motorista_db():
 init_motorista_db()
 
 def corrigir_estrutura_banco():
-    """Remove o banco se tiver estrutura antiga, para recriar com a nova."""
+    """Recria o banco se a tabela motoristas tiver a estrutura antiga (com veiculo_id)."""
     db = get_db()
     try:
-        # Verifica se a tabela motoristas tem a coluna veiculo_id (estrutura antiga)
         colunas = [r[1] for r in db.execute('PRAGMA table_info(motoristas)').fetchall()]
         if 'veiculo_id' in colunas:
             db.close()
-            import os
-            os.remove('motoristas.db')  # apaga o banco antigo
-            init_motorista_db()  # recria com a estrutura nova
+            os.remove('motoristas.db')
+            init_motorista_db()
             return
     except Exception:
         pass
@@ -902,8 +900,8 @@ def admin_add_motorista():
     senha = request.form['senha']
     db = get_db()
     try:
-        db.execute('INSERT INTO motoristas (nome, usuario, senha_hash, veiculo_id) VALUES (?,?,?,?)',
-                   (nome, usuario, generate_password_hash(senha), veiculo_id))
+        db.execute('INSERT INTO motoristas (nome, usuario, senha_hash) VALUES (?,?,?)',
+                   (nome, usuario, generate_password_hash(senha)))
         db.commit()
     except sqlite3.IntegrityError:
         pass
