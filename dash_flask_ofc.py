@@ -482,10 +482,10 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 .hint{{text-align:center;margin-top:16px;font-size:12px;color:#94a3b8}}
 .voltar{{display:block;text-align:center;margin-top:16px;color:#2563eb;text-decoration:none;font-size:13px;font-weight:600}}
 .footer{{width:100%;max-width:600px;margin:24px auto 0;text-align:center;color:rgba(255,255,255,.6);font-size:12px;line-height:1.8}}
-.btn-admin{display:inline-block;background:#7c3aed;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}
-.btn-admin:hover{background:#6d28d9;}
-.btn-motorista{display:inline-block;background:#25d366;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}
-.btn-motorista:hover{background:#1ebe5b;}
+.btn-admin{{display:inline-block;background:#7c3aed;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}}
+.btn-admin:hover{{background:#6d28d9;}}
+.btn-motorista{{display:inline-block;background:#25d366;color:#fff;padding:10px 18px;border-radius:25px;font-weight:700;text-decoration:none;transition:background .2s;}}
+.btn-motorista:hover{{background:#1ebe5b;}}
 </style>
 </head>
 <body>
