@@ -1131,7 +1131,7 @@ def admin_editar_motorista(id):
 def index():
     return Response(PAGINA_INICIAL, mimetype='text/html')
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     session.clear()  # <-- zera qualquer sessão antiga (admin, etc.)
     username = request.form.get('usuario')
