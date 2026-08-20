@@ -738,9 +738,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <body>
 <div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
 <div class="tabs" id="navTabs">
-<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)" style="display:__SHOW_COMERCIAL__">Comercial</button>
-<button class="tab" data-sector="logistica" onclick="sw('logistica',this)" style="display:__SHOW_LOGISTICA__">Logistica</button>
-<button class="tab" data-sector="contabil" onclick="sw('contabil',this)" style="display:__SHOW_CONTABIL__">Contabil</button>
+<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
+<button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
+<button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
 </div>
 <div class="ctn">
 <div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
@@ -1133,15 +1133,16 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    session.clear()  # <-- zera qualquer sessão antiga (admin, etc.)
-    username = request.form.get('user')
-    senha = request.form.get('senha')
-    users = carregar_usuarios()
-    u = users.get(username)
-    if u and verificar_senha(u, senha):
-        session['user'] = username  # <-- grava o usuário DIGITADO
-        return redirect('/dashboard')
-    return "Credenciais inválidas", 401
+    if request.method == 'POST':
+        user = request.form.get('user', '').strip()
+        senha = request.form.get('senha', '')
+        users = carregar_usuarios()
+        u = users.get(user)
+        if u and u["senha_hash"] == hash_senha(senha):
+            session['user'] = user
+            return redirect('/dashboard')
+        return Response(login_page_html("Usuario ou senha invalidos."), mimetype='text/html')
+    return Response(login_page_html(), mimetype='text/html')
 
 @app.route('/logout')
 def logout():
@@ -1150,7 +1151,6 @@ def logout():
 
 @app.route('/dashboard')
 @requer_login
-@requer_admin_master
 def dashboard():
     u = usuario_logado()
     with _cache_lock:
@@ -1160,11 +1160,6 @@ def dashboard():
             html = html.replace("__USER_SECTOR__", u["setor"])
             html = html.replace("__USER_ROLE__", u["role"])
             html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-            setor = u["setor"]
-            is_master = u["role"] == "admin_master"
-            html = html.replace("__SHOW_COMERCIAL__", "inline-block" if (is_master or setor == "comercial") else "none")
-            html = html.replace("__SHOW_LOGISTICA__", "inline-block" if (is_master or setor == "logistica") else "none")
-            html = html.replace("__SHOW_CONTABIL__", "inline-block" if (is_master or setor == "contabil") else "none")
             return Response(html, mimetype='text/html')
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
@@ -1175,11 +1170,6 @@ def dashboard():
         html = html.replace("__USER_SECTOR__", u["setor"])
         html = html.replace("__USER_ROLE__", u["role"])
         html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-        setor = u["setor"]
-        is_master = u["role"] == "admin_master"
-        html = html.replace("__SHOW_COMERCIAL__", "inline-block" if (is_master or setor == "comercial") else "none")
-        html = html.replace("__SHOW_LOGISTICA__", "inline-block" if (is_master or setor == "logistica") else "none")
-        html = html.replace("__SHOW_CONTABIL__", "inline-block" if (is_master or setor == "contabil") else "none")
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
@@ -1262,15 +1252,12 @@ def fachada():
             return send_file(c, mimetype='image/jpeg')
     return "Imagem não encontrada", 404
 
+
 @app.route('/admin/usuarios')
-@requer_login
+@requer_admin_master
 def admin_usuarios():
-    u = usuario_logado()
-    if u is None:
-        return redirect('/login')
-    if u["role"] != "admin_master":
-        return "Acesso negado", 403
-    # ... resto do código
+    users = carregar_usuarios()
+    return Response(admin_page_html(users), mimetype='text/html')
 
 @app.route('/admin/usuarios/novo', methods=['POST'])
 @requer_admin_master
@@ -1497,18 +1484,6 @@ def buscar_periodo_endpoint():
             try: todos.extend(f.result())
             except: pass
     return jsonify({"status": "ok", "pedidos": todos})
-
-def _aplicar_permissoes(html, u):
-    setor = u["setor"]
-    is_master = u["role"] == "admin_master"
-    html = html.replace("__USER_NAME__", u["nome"])
-    html = html.replace("__USER_SECTOR__", setor)
-    html = html.replace("__USER_ROLE__", u["role"])
-    html = html.replace("__IS_MASTER__", "1" if is_master else "0")
-    html = html.replace("__SHOW_COMERCIAL__", "inline-block" if (is_master or setor == "comercial") else "none")
-    html = html.replace("__SHOW_LOGISTICA__", "inline-block" if (is_master or setor == "logistica") else "none")
-    html = html.replace("__SHOW_CONTABIL__", "inline-block" if (is_master or setor == "contabil") else "none")
-    return html
 
 @app.route('/cmv')
 def cmv_endpoint():
