@@ -431,7 +431,6 @@ nav a{margin:0 8px;font-size:13px;}
 <a href="/">Início</a>
 <a href="#historia">Nossa História</a>
 <a href="#vendedoras">Vendedoras</a>
-<a href="#contato">Contato</a>
 <a href="#local">Localização</a>
 </nav>
 <a href="/login" class="btn-login">Login / Dashboard</a>
@@ -1237,6 +1236,22 @@ def logo():
         return send_file(matches[0], mimetype='image/png')
     pixel = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\xfe\x02\xfe\xdc\xcc\x59\xe7\x00\x00\x00\x00IEND\xaeB`\x82'
     return Response(pixel, mimetype='image/png')
+
+
+
+@app.route('/fachada')
+def fachada():
+    caminhos = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'imagem_frente.jpg'),
+        os.path.join(os.getcwd(), 'imagem_frente.jpg'),
+        'imagem_frente.jpg',
+        '/app/imagem_frente.jpg',
+    ]
+    for c in caminhos:
+        if os.path.exists(c):
+            return send_file(c, mimetype='image/jpeg')
+    return "Imagem não encontrada", 404
+
 
 @app.route('/admin/usuarios')
 @requer_admin_master
