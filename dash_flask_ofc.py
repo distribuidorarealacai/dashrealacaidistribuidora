@@ -17,6 +17,16 @@ app.secret_key = secrets.token_hex(32)
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from functools import wraps
+
+def login_necessario(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if 'user' not in session:
+            return redirect('/login')
+        return f(*args, **kwargs)
+    return wrapper
+
 # ⚠️ TROQUE ESTA SENHA pela senha do Admin Master
 ADMIN_SENHA = 'Xd@132429'
 
@@ -1364,7 +1374,7 @@ def admin_trocar_senha():
 
 # ===== ROTA: RELATÓRIO DE ABASTECIMENTOS CONSOLIDADO (LOGÍSTICA) =====
 @app.route('/logistica_abastecimentos')
-@login_required
+@login_necessario
 def logistica_abastecimentos():
     inicio = request.args.get('inicio', '')
     fim = request.args.get('fim', '')
