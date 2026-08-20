@@ -1394,8 +1394,8 @@ def logistica_abastecimentos():
     <h1>⛽ Logística — Abastecimentos Consolidado</h1>
 
     <form class="filtro" method="get" action="/logistica_abastecimentos">
-        <div><label>Data início</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> name="inicio" value="{{ inicio }}"></div>
-        <div><label>Data fim</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> name="fim" value="{{ fim }}"></div>
+        <div><label>Data início</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__">value="{{ inicio }}"></div>
+        <div><label>Data fim</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__">value="{{ fim }}"></div>
         <button type="submit">Filtrar</button>
         <a href="/logistica_abastecimentos">Limpar</a>
     </form>
