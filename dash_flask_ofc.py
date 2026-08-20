@@ -1294,15 +1294,6 @@ def admin_trocar_senha():
     return redirect('/admin/usuarios?ok=senha')
 
 
-CREATE TABLE IF NOT EXISTS abastecimentos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    veiculo_id INTEGER,
-    motorista_id INTEGER,
-    data TEXT,
-    litros REAL,
-    valor REAL,
-    km REAL
-)
 
 # ===== RELATÓRIO DE ABASTECIMENTOS CONSOLIDADO (ABA LOGÍSTICA) =====
 @app.route('/logistica_abastecimentos')
