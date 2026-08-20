@@ -16,6 +16,8 @@ app.secret_key = secrets.token_hex(32)
 # ===== MÓDULO SOU MOTORISTA =====
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'motoristas.db')
 
 from functools import wraps
 
@@ -1291,6 +1293,17 @@ def admin_trocar_senha():
         salvar_usuarios(users)
     return redirect('/admin/usuarios?ok=senha')
 
+
+CREATE TABLE IF NOT EXISTS abastecimentos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    veiculo_id INTEGER,
+    motorista_id INTEGER,
+    data TEXT,
+    litros REAL,
+    valor REAL,
+    km REAL
+)
+
 # ===== RELATÓRIO DE ABASTECIMENTOS CONSOLIDADO (ABA LOGÍSTICA) =====
 @app.route('/logistica_abastecimentos')
 def logistica_abastecimentos():
@@ -1300,7 +1313,7 @@ def logistica_abastecimentos():
     inicio = request.args.get('inicio', '')
     fim = request.args.get('fim', '')
 
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect('motoristas.db')
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
