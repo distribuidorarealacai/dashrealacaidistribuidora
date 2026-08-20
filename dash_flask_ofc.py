@@ -7,7 +7,7 @@ from datetime import datetime, date
 from calendar import monthrange
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
-from flask import Flask, request, jsonify, send_file, Response
+from flask import Flask, request, jsonify, send_file, Response, render_template_string
 app = Flask(__name__)
 import hashlib, secrets
 from flask import session, redirect, url_for
