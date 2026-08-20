@@ -1150,6 +1150,7 @@ def logout():
 
 @app.route('/dashboard')
 @requer_login
+@requer_admin_master
 def dashboard():
     u = usuario_logado()
     with _cache_lock:
@@ -1262,7 +1263,6 @@ def fachada():
     return "Imagem não encontrada", 404
 
 @app.route('/admin/usuarios')
-@requer_admin_master
 @requer_login
 def admin_usuarios():
     u = usuario_logado()
