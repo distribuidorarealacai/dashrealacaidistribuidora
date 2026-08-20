@@ -779,7 +779,7 @@ var USER_ROLE='__USER_ROLE__';
 var IS_MASTER=__IS_MASTER__;
 function filtrarAbas(){var tabs=document.querySelectorAll('#navTabs .tab');tabs.forEach(function(t){var s=t.getAttribute('data-sector');if(USER_ROLE==='admin_master'||USER_ROLE==='admin'||USER_SECTOR==='all'){t.style.display=''}else{t.style.display=(s===USER_SECTOR)?'':'none'}});if(USER_ROLE!=='admin_master'&&USER_ROLE!=='admin'&&USER_SECTOR!=='all'){var p=document.querySelector('#navTabs .tab[style=""], #navTabs .tab:not([style])');if(p)p.click()}}
 function renderTudo(){var ini=document.getElementById('dIni').value,fim=document.getElementById('dFim').value;var ped=TP.filter(function(p){return p.data>=ini&&p.data<=fim});if(ef!=='todos')ped=ped.filter(function(p){return p.empresa===ef});var mr=fim.substring(0,7);currentMR=mr;var metasMes=gm(mr);document.getElementById('mesL').textContent=metasMes.nome_mes||fm2(mr);var hoje=new Date();var maStr=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');var fma=TP.filter(function(p){return p.data.substring(0,7)===maStr&&(ef==='todos'||p.empresa===ef)}).reduce(function(s,p){return s+p.valor},0);if(ped.length===0){msd()}else{var pv={};ped.forEach(function(p){var v=nn(p.vendedor);if(!pv[v])pv[v]={n:v,f:0,q:0,e:p.empresa};pv[v].f+=p.valor;pv[v].q+=1});var vs=Object.values(pv).sort(function(a,b){return b.f-a.f});vs.forEach(function(v){v.f=Math.round(v.f*100)/100});var ft=vs.reduce(function(s,v){return s+v.f},0),qv=vs.reduce(function(s,v){return s+v.q},0),tm=qv>0?ft/qv:0,dp=cd(ini,fim);rk(ft,qv,tm,dp,vs.length);rm(vs,mr,fma,maStr);rcV(vs);rcD(ped);rcK(vs,ft);rt(vs,ft);rc(ped,ft,qv)}var ent=TE.filter(function(e){return e.data>=ini&&e.data<=fim});re(ent,ini,fim)}
-function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)}
+function sw(t,b){var map={'comercial':'tc-com','logistica':'tc-log','contabil':'tc-con'};document.querySelectorAll('.tc').forEach(function(x){x.classList.remove('act')});document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act')});document.getElementById(map[t]).classList.add('act');b.classList.add('act');var fbE=document.getElementById('fbEmp');if(fbE){if(t==='logistica'||t==='contabil'){fbE.style.display='none'}else{fbE.style.display='flex'}}setTimeout(function(){try{if(t==='comercial'){if(cV)cV.resize();if(cD)cD.resize();if(cK)cK.resize()}else if(t==='logistica'){if(cE)cE.resize();if(cED)cED.resize()}}catch(e){}},50)<a href="/logistica_abastecimentos" class="btn">📊 Relatório de Abastecimentos</a>}
 function nn(n){if(!n)return 'Sem vendedor';return String(n).replace(/[\xa0\t\n\r]/g,' ').replace(/\s+/g,' ').trim().toUpperCase()}
 function bm(n){var m=gm(currentMR);var nl=n.toLowerCase();var k=Object.keys(m.vendedoras).find(function(x){return x.toLowerCase()===nl});return k?m.vendedoras[k]:0}
 function fm(v){return'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -1361,6 +1361,157 @@ def admin_trocar_senha():
         users[username]["senha_hash"] = hash_senha(nova)
         salvar_usuarios(users)
     return redirect('/admin/usuarios?ok=senha')
+
+# ===== ROTA: RELATÓRIO DE ABASTECIMENTOS CONSOLIDADO (LOGÍSTICA) =====
+@app.route('/logistica_abastecimentos')
+@login_required
+def logistica_abastecimentos():
+    inicio = request.args.get('inicio', '')
+    fim = request.args.get('fim', '')
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    # Filtro de data (opcional)
+    filtro = ""
+    params = []
+    if inicio and fim:
+        filtro = "AND a.data BETWEEN ? AND ?"
+        params = [inicio, fim]
+
+    # Totais gerais
+    cur.execute(f"""
+        SELECT COUNT(*) AS qtd,
+               COALESCE(SUM(a.litros), 0) AS total_litros,
+               COALESCE(SUM(a.valor), 0) AS total_valor,
+               COALESCE(SUM(a.km), 0) AS total_km
+        FROM abastecimentos a
+        WHERE 1=1 {filtro}
+    """, params)
+    totais = cur.fetchone()
+
+    # Consolidação POR VEÍCULO
+    cur.execute(f"""
+        SELECT v.placa, v.descricao,
+               COUNT(a.id) AS qtd,
+               COALESCE(SUM(a.litros), 0) AS litros,
+               COALESCE(SUM(a.valor), 0) AS valor
+        FROM abastecimentos a
+        JOIN veiculos v ON v.id = a.veiculo_id
+        WHERE 1=1 {filtro}
+        GROUP BY v.id
+        ORDER BY valor DESC
+    """, params)
+    por_veiculo = cur.fetchall()
+
+    # Consolidação POR MOTORISTA
+    cur.execute(f"""
+        SELECT m.nome,
+               COUNT(a.id) AS qtd,
+               COALESCE(SUM(a.litros), 0) AS litros,
+               COALESCE(SUM(a.valor), 0) AS valor
+        FROM abastecimentos a
+        JOIN motoristas m ON m.id = a.motorista_id
+        WHERE 1=1 {filtro}
+        GROUP BY m.id
+        ORDER BY valor DESC
+    """, params)
+    por_motorista = cur.fetchall()
+
+    conn.close()
+
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Logística — Abastecimentos Consolidado</title>
+        <style>
+            * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', Arial, sans-serif; }
+            body { background:#12061f; color:#e9d5ff; padding:24px; min-height:100vh; }
+            h1 { color:#c084fc; margin-bottom:20px; font-size:24px; }
+            h2 { color:#a78bfa; margin:28px 0 12px; font-size:18px; }
+            .filtro { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:20px;
+                      background:#221040; padding:16px; border-radius:12px; border:1px solid #3b1a6b; }
+            .filtro label { font-size:13px; color:#c4b5fd; display:block; margin-bottom:4px; }
+            .filtro input { background:#1a0b2e; border:1px solid #3b1a6b; color:#e9d5ff;
+                            padding:8px 10px; border-radius:8px; }
+            .filtro button { background:#7c3aed; color:#fff; border:none; padding:9px 18px;
+                             border-radius:8px; cursor:pointer; font-weight:600; }
+            .filtro button:hover { background:#6d28d9; }
+            .filtro a { color:#38bdf8; text-decoration:none; font-size:13px; align-self:center; }
+            .kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:14px; margin-bottom:10px; }
+            .kpi { background:#221040; border:1px solid #3b1a6b; border-radius:12px; padding:18px; text-align:center; }
+            .kpi .num { font-size:26px; font-weight:700; color:#c084fc; }
+            .kpi .lbl { font-size:13px; color:#a78bfa; margin-top:4px; }
+            table { width:100%; border-collapse:collapse; background:#221040; border-radius:12px;
+                    overflow:hidden; border:1px solid #3b1a6b; }
+            th { background:#2a1450; color:#c084fc; padding:11px 12px; text-align:left; font-size:13px; }
+            td { padding:10px 12px; border-top:1px solid #3b1a6b; font-size:14px; }
+            tr:hover td { background:#2a1450; }
+            .valor { color:#34d399; font-weight:600; }
+            .vazio { text-align:center; color:#a78bfa; padding:24px; }
+            .voltar { display:inline-block; margin-top:24px; color:#38bdf8; text-decoration:none; font-size:14px; }
+        </style>
+    </head>
+    <body>
+        <h1>⛽ Logística — Abastecimentos Consolidado</h1>
+
+        <form class="filtro" method="get" action="/logistica_abastecimentos">
+            <div><label>Data início</label><input type="date" name="inicio" value="{{ inicio }}"></div>
+            <div><label>Data fim</label><input type="date" name="fim" value="{{ fim }}"></div>
+            <button type="submit">Filtrar</button>
+            <a href="/logistica_abastecimentos">Limpar</a>
+        </form>
+
+        <div class="kpis">
+            <div class="kpi"><div class="num">{{ totais['qtd'] }}</div><div class="lbl">Abastecimentos</div></div>
+            <div class="kpi"><div class="num">R$ {{ "%.2f"|format(totais['total_valor']) }}</div><div class="lbl">Valor Total</div></div>
+            <div class="kpi"><div class="num">{{ "%.2f"|format(totais['total_litros']) }} L</div><div class="lbl">Total Litros</div></div>
+            <div class="kpi"><div class="num">{{ "%.0f"|format(totais['total_km']) }} km</div><div class="lbl">Total Km</div></div>
+        </div>
+
+        <h2>🚗 Por Veículo</h2>
+        <table>
+            <thead><tr><th>Veículo</th><th>Qtd</th><th>Litros</th><th>Valor Total</th></tr></thead>
+            <tbody>
+            {% for v in por_veiculo %}
+                <tr>
+                    <td>{{ v['placa'] }} — {{ v['descricao'] }}</td>
+                    <td>{{ v['qtd'] }}</td>
+                    <td>{{ "%.2f"|format(v['litros']) }} L</td>
+                    <td class="valor">R$ {{ "%.2f"|format(v['valor']) }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4" class="vazio">Nenhum abastecimento no período.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>👤 Por Motorista</h2>
+        <table>
+            <thead><tr><th>Motorista</th><th>Qtd</th><th>Litros</th><th>Valor Total</th></tr></thead>
+            <tbody>
+            {% for m in por_motorista %}
+                <tr>
+                    <td>{{ m['nome'] }}</td>
+                    <td>{{ m['qtd'] }}</td>
+                    <td>{{ "%.2f"|format(m['litros']) }} L</td>
+                    <td class="valor">R$ {{ "%.2f"|format(m['valor']) }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="4" class="vazio">Nenhum abastecimento no período.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <a class="voltar" href="/dashboard">← Voltar ao Dashboard</a>
+    </body>
+    </html>
+    ''', inicio=inicio, fim=fim, totais=totais,
+         por_veiculo=por_veiculo, por_motorista=por_motorista)
 
 @app.route('/buscar_periodo')
 def buscar_periodo_endpoint():
