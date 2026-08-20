@@ -1131,18 +1131,17 @@ def admin_editar_motorista(id):
 def index():
     return Response(PAGINA_INICIAL, mimetype='text/html')
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['POST'])
 def login():
-    if request.method == 'POST':
-        user = request.form.get('user', '').strip()
-        senha = request.form.get('senha', '')
-        users = carregar_usuarios()
-        u = users.get(user)
-        if u and u["senha_hash"] == hash_senha(senha):
-            session['user'] = user
-            return redirect('/dashboard')
-        return Response(login_page_html("Usuario ou senha invalidos."), mimetype='text/html')
-    return Response(login_page_html(), mimetype='text/html')
+    session.clear()  # <-- zera qualquer sessão antiga (admin, etc.)
+    username = request.form.get('usuario')
+    senha = request.form.get('senha')
+    users = carregar_usuarios()
+    u = users.get(username)
+    if u and verificar_senha(u, senha):
+        session['user'] = username  # <-- grava o usuário DIGITADO
+        return redirect('/dashboard')
+    return "Credenciais inválidas", 401
 
 @app.route('/logout')
 def logout():
@@ -1262,12 +1261,15 @@ def fachada():
             return send_file(c, mimetype='image/jpeg')
     return "Imagem não encontrada", 404
 
-
 @app.route('/admin/usuarios')
-@requer_admin_master
+@requer_login
 def admin_usuarios():
-    users = carregar_usuarios()
-    return Response(admin_page_html(users), mimetype='text/html')
+    u = usuario_logado()
+    if u is None:
+        return redirect('/login')
+    if u["role"] != "admin_master":
+        return "Acesso negado", 403
+    # ... resto do código
 
 @app.route('/admin/usuarios/novo', methods=['POST'])
 @requer_admin_master
