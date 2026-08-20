@@ -1262,6 +1262,7 @@ def fachada():
     return "Imagem não encontrada", 404
 
 @app.route('/admin/usuarios')
+@requer_admin_master
 @requer_login
 def admin_usuarios():
     u = usuario_logado()
