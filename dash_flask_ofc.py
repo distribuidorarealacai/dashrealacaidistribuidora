@@ -1134,7 +1134,7 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     session.clear()  # <-- zera qualquer sessão antiga (admin, etc.)
-    username = request.form.get('usuario')
+    username = request.form.get('user')
     senha = request.form.get('senha')
     users = carregar_usuarios()
     u = users.get(username)
