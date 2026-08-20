@@ -736,11 +736,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">nome</span><a href="/admin/usuarios"style="display:__SHOW_MASTER__ "id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
 <div class="tabs" id="navTabs">
-<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
-<button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
-<button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
+<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)" style="display:__SHOW_COMERCIAL__">Comercial</button>
+<button class="tab" data-sector="logistica" onclick="sw('logistica',this)" style="display:__SHOW_LOGISTICA__">Logistica</button>
+<button class="tab" data-sector="contabil" onclick="sw('contabil',this)" style="display:__SHOW_CONTABIL__">Contabil</button>
 </div>
 <div class="ctn">
 <div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
@@ -1156,20 +1156,32 @@ def dashboard():
     with _cache_lock:
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
             html = _cache["html"]
-            html = html.replace("__USER_NAME__", u["nome"])
+            html = html.replace("nome", u["nome"])
             html = html.replace("__USER_SECTOR__", u["setor"])
             html = html.replace("__USER_ROLE__", u["role"])
             html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+            html = html.replace("__SHOW_MASTER__", "inline-block" if u["role"] == "admin_master" else "none")
+            setor = u["setor"]
+            is_master = u["role"] == "admin_master"
+            html = html.replace("__SHOW_COMERCIAL__", "inline-block" if (is_master or setor == "comercial") else "none")
+            html = html.replace("__SHOW_LOGISTICA__", "inline-block" if (is_master or setor == "logistica") else "none")
+            html = html.replace("__SHOW_CONTABIL__", "inline-block" if (is_master or setor == "contabil") else "none")
             return Response(html, mimetype='text/html')
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
         todos = buscar_dados_mes_atual()
         ent = ler_dados_entregas()
         html = gerar_dashboard_html(todos, ent)
-        html = html.replace("__USER_NAME__", u["nome"])
+        html = html.replace("nome", u["nome"])
         html = html.replace("__USER_SECTOR__", u["setor"])
         html = html.replace("__USER_ROLE__", u["role"])
         html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
+        html = html.replace("__SHOW_MASTER__", "inline-block" if u["role"] == "admin_master" else "none")
+        setor = u["setor"]
+        is_master = u["role"] == "admin_master"
+        html = html.replace("__SHOW_COMERCIAL__", "inline-block" if (is_master or setor == "comercial") else "none")
+        html = html.replace("__SHOW_LOGISTICA__", "inline-block" if (is_master or setor == "logistica") else "none")
+        html = html.replace("__SHOW_CONTABIL__", "inline-block" if (is_master or setor == "contabil") else "none")
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
