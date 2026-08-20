@@ -740,7 +740,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
 <button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
 <button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
-<a href="/logistica_abastecimentos" style="display:inline-block; background:#7c3aed; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none; font-weight:600; margin:10px 0;">📊 Relatório de Abastecimentos</a>
 </div>
 <div class="ctn">
 <div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
@@ -757,6 +756,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="kg" id="kpiE"></div>
 <div class="cg"><div class="cc"><div class="ct">Entregas por Entregador</div><div class="cw"><canvas id="cE"></canvas></div></div><div class="cc"><div class="ct">Entregas por Dia</div><div class="cw"><canvas id="cED"></canvas></div></div></div>
 <div class="tc2"><div class="ct">Detalhamento de Entregas</div><table><thead><tr><th>Entregador</th><th>Total</th><th>%</th></tr></thead><tbody id="tbE"></tbody></table></div>
+<a href="/logistica_abastecimentos" style="display:inline-block; background:#7c3aed; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none; font-weight:600; margin:10px 0;">📊 Relatório de Abastecimentos</a>
 </div>
 <div id="tc-con" class="tc">
 <div class="kg" id="kpiC"></div>
