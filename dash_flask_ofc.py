@@ -744,7 +744,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
 </div>
 <div class="ctn">
-<div class="fb"><div class="fg"><label>De</label><input type="text" class="datepicker" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="text" class="datepicker" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
+<div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
 <div class="fb" id="fbEmp" style="padding:14px 24px"><div class="ef"><span class="el">Empresa:</span><button class="be act" onclick="se('todos',this)">Consolidado</button><button class="be" onclick="se('REAL MAIS',this)">REAL MAIS</button><button class="be" onclick="se('GP DISTRIBUIDORA',this)">GP</button></div></div>
 <div id="tc-com" class="tc act">
 <div class="kg" id="kpi"></div>
@@ -764,7 +764,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="kg" id="kpiC"></div>
 <div class="st">CMV - Custo de Mercadorias Vendidas</div>
 <div class="fb" style="flex-direction:column;align-items:flex-start;gap:12px">
-<div class="cig"><div class="fg"><label>Estoque Inicial</label><input type="text" class="datepicker" id="cmvDi"></div><div class="fg"><label>Estoque Final</label><input type="text" class="datepicker" id="cmvDf"></div></div>
+<div class="cig"><div class="fg"><label>Estoque Inicial</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> id="cmvDi"></div><div class="fg"><label>Estoque Final</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> id="cmvDf"></div></div>
 <div class="cig"><div class="fg"><label>Est.Ini RM</label><input type="number" id="cmvEi" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Ini GP</label><input type="number" id="cmvEig" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin RM</label><input type="number" id="cmvEf" step="0.01" placeholder="0" style="width:160px"></div><div class="fg"><label>Est.Fin GP</label><input type="number" id="cmvEfg" step="0.01" placeholder="0" style="width:160px"></div></div>
 <button class="ba" onclick="calcCMV()">Calcular CMV</button>
 </div>
@@ -1394,8 +1394,8 @@ def logistica_abastecimentos():
     <h1>⛽ Logística — Abastecimentos Consolidado</h1>
 
     <form class="filtro" method="get" action="/logistica_abastecimentos">
-        <div><label>Data início</label><input type="text" class="datepicker" name="inicio" value="{{ inicio }}"></div>
-        <div><label>Data fim</label><input type="text" class="datepicker" name="fim" value="{{ fim }}"></div>
+        <div><label>Data início</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> name="inicio" value="{{ inicio }}"></div>
+        <div><label>Data fim</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"> name="fim" value="{{ fim }}"></div>
         <button type="submit">Filtrar</button>
         <a href="/logistica_abastecimentos">Limpar</a>
     </form>
