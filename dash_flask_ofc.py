@@ -54,37 +54,6 @@ def init_motorista_db():
 
 init_motorista_db()
 
-def corrigir_estrutura_banco():
-    db = get_db()
-    try:
-        colunas_veic = [r[1] for r in db.execute('PRAGMA table_info(veiculos)').fetchall()]
-        colunas_mot = [r[1] for r in db.execute('PRAGMA table_info(motoristas)').fetchall()]
-        if 'km_atual' in colunas_veic or 'veiculo_id' in colunas_mot:
-            db.close()
-            os.remove('motoristas.db')
-            init_motorista_db()
-            return
-    except Exception:
-        pass
-    db.close()
-
-corrigir_estrutura_banco()
-
-def corrigir_estrutura_banco():
-    """Recria o banco se a tabela motoristas tiver a estrutura antiga (com veiculo_id)."""
-    db = get_db()
-    try:
-        colunas = [r[1] for r in db.execute('PRAGMA table_info(motoristas)').fetchall()]
-        if 'veiculo_id' in colunas:
-            db.close()
-            os.remove('motoristas.db')
-            init_motorista_db()
-            return
-    except Exception:
-        pass
-    db.close()
-
-corrigir_estrutura_banco()
 
 USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.json')
 
@@ -771,7 +740,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <script>
 const TP=__DJ__,TE=__EJ__,METAS=__MJ__,C=['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 var ef='todos';
-var cV,cD,cK,cE,cED;
+var cV,cD,cK,cE,cED,cA=null,cAD=null;
 var currentMR='';
 function gm(mr){return METAS[mr]||{nome_mes:'',consolidada:0,vendedoras:{}}}
 var USER_SECTOR='__USER_SECTOR__';
@@ -800,6 +769,33 @@ function rm(vs,mr,fma,maStr){var h='';var pvMes={};TP.filter(function(p){return 
 function tmp(){var p=document.getElementById('mp');if(p.classList.contains('act')){p.classList.remove('act');return}p.classList.add('act');var metasMes=gm(currentMR);var h='<div class="fg" style="margin-bottom:12px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px">Nome do Mes</label><input type="text" id="mNome" value="'+metasMes.nome_mes+'" placeholder="Ex: Setembro 2026" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:300px"></div>';h+='<div class="fg" style="margin-bottom:12px"><label style="display:block;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-bottom:4px">Meta Consolidada</label><input type="number" id="mCons" value="'+metasMes.consolidada+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:200px"></div>';h+='<div style="font-weight:700;margin:16px 0 8px">Metas por Vendedora</div>';var nomes=new Set();Object.keys(metasMes.vendedoras).forEach(function(n){nomes.add(n)});TP.forEach(function(p){nomes.add(nn(p.vendedor))});nomes.forEach(function(n){var v=metasMes.vendedoras[n]||0;h+='<div class="mer"><div class="mel">'+n+'</div><input type="number" data-nome="'+n+'" value="'+v+'" step="0.01" style="padding:8px;border:2px solid var(--brd);border-radius:8px;width:180px"></div>'});document.getElementById('mef').innerHTML=h}
 function svm(){var nome=document.getElementById('mNome').value;var cons=parseFloat(document.getElementById('mCons').value)||0;var vendedoras={};var inputs=document.querySelectorAll('[data-nome]');inputs.forEach(function(inp){var n=inp.getAttribute('data-nome');vendedoras[n]=parseFloat(inp.value)||0});var d={mes:currentMR,nome_mes:nome,consolidada:cons,vendedoras:vendedoras};fetch('/api/metas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){return r.json()}).then(function(x){if(x.status==='ok'){alert('Metas salvas para '+nome+'!');location.reload()}else alert('Erro: '+(x.erro||''))}).catch(function(e){alert('Erro: '+e)})}
 function re(ent,ini,fim){if(!ent||ent.length===0){document.getElementById('kpiE').innerHTML='<div class="nd">Nenhuma entrega no periodo.</div>';document.getElementById('tbE').innerHTML='';if(cE)cE.destroy();if(cED)cED.destroy();return}var pe={},pd={};ent.forEach(function(e){var nome=e.entregador;if(!pe[nome])pe[nome]=0;pe[nome]++;if(!pd[e.data])pd[e.data]=0;pd[e.data]++});var te=ent.length,er=Object.keys(pe).filter(function(n){return n!=='RETIRADA'}),ter=er.length,tr=pe['RETIRADA']||0,dp=cd(ini,fim);document.getElementById('kpiE').innerHTML='<div class="kc tel"><div class="kl">Total Entregas</div><div class="kv">'+te+'</div><div class="ks">'+dp+' dia(s)</div></div><div class="kc"><div class="kl">Entregadores</div><div class="kv">'+ter+'</div><div class="ks">ativos</div></div><div class="kc amb"><div class="kl">Retiradas</div><div class="kv">'+tr+'</div><div class="ks">no balcao</div></div><div class="kc grn"><div class="kl">Media</div><div class="kv">'+(ter>0?(te/ter).toFixed(0):0)+'</div><div class="ks">por pessoa</div></div>';var x=document.getElementById('cE').getContext('2d');if(cE)cE.destroy();var eo=Object.entries(pe).sort(function(a,b){return b[1]-a[1]}).filter(function(entry){return entry[0]!=='RETIRADA'});cE=new Chart(x,{type:'bar',data:{labels:eo.map(function(x){return x[0]}),datasets:[{data:eo.map(function(x){return x[1]}),backgroundColor:eo.map(function(_,i){return C[i%C.length]+'cc'}),borderColor:eo.map(function(_,i){return C[i%C.length]}),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{stepSize:1}}}}});var x2=document.getElementById('cED').getContext('2d');if(cED)cED.destroy();var tk=Object.keys(pd).sort(),dc=[],vd=[];tk.forEach(function(d){if(pd[d]>0){dc.push(d);vd.push(pd[d])}});var g=x2.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(20,184,166,0.3)');g.addColorStop(1,'rgba(20,184,166,0.02)');cED=new Chart(x2,{type:'line',data:{labels:dc.map(fd),datasets:[{data:vd,borderColor:'#14b8a6',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#14b8a6'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1}}}}});var h='';Object.entries(pe).sort(function(a,b){return b[1]-a[1]}).forEach(function(entry,i){var n=entry[0],q=entry[1];var p=te>0?(q/te*100):0;var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+(n==='RETIRADA'?'RETIRADA':n)+'</td><td>'+q+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>'});document.getElementById('tbE').innerHTML=h}
+function fmt(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function ra(abs,ini,fim){if(!abs||abs.length===0){document.getElementById('kpiA').innerHTML='<div class="nd">Nenhum abastecimento no periodo.</div>';document.getElementById('tbA').innerHTML='';if(cA)cA.destroy();if(cAD)cAD.destroy();return}
+var pv={},pl={},pd={};abs.forEach(function(a){var n=a.veiculo;var v=parseFloat(a.valor)||0;var l=parseFloat(a.litros)||0;if(!pv[n])pv[n]=0;pv[n]+=v;if(!pl[n])pl[n]=0;pl[n]+=l;if(!pd[a.data])pd[a.data]=0;pd[a.data]+=v;});
+var nAbs=abs.length;
+var nVec=Object.keys(pv).length;
+var total=Object.entries(pv).reduce(function(s,e){return s+e[1]},0);
+var totL=Object.entries(pl).reduce(function(s,e){return s+e[1]},0);
+var dp=cd(ini,fim);document.getElementById('kpiA').innerHTML='<div class="kc tel"><div class="kl">Abastecimentos</div><div class="kv">'+nAbs+'</div><div class="ks">'+dp+' dia(s)</div></div>'+'<div class="kc"><div class="kl">Veículos</div><div class="kv">'+nVec+'</div><div class="ks">ativos</div></div>'+'<div class="kc amb"><div class="kl">Litros</div><div class="kv">'+totL.toFixed(1)+'</div><div class="ks">no periodo</div></div>'+'<div class="kc grn"><div class="kl">Média</div><div class="kv">'+fmt(total/nAbs)+'</div><div class="ks">por abastec.</div></div>';
+var x=document.getElementById('cA').getContext('2d');if(cA)cA.destroy();
+var eo=Object.entries(pv).sort(function(a,b){return b[1]-a[1]});cA=new Chart(x,{type:'bar',data:{labels:eo.map(function(x){return x[0]}),datasets:[{data:eo.map(function(x){return x[1]}),backgroundColor:eo.map(function(_,i){return C[i%C.length]+'cc'}),borderColor:eo.map(function(_,i){return C[i%C.length]}),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{callback:function(v){return fmt(v)}}}}}});
+var x2=document.getElementById('cAD').getContext('2d');if(cAD)cAD.destroy();var tk=Object.keys(pd).sort(),dc=[],vd=[];tk.forEach(function(d){if(pd[d]>0){dc.push(d);vd.push(pd[d])}});
+var g=x2.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(20,184,166,0.3)');g.addColorStop(1,'rgba(20,184,166,0.02)');cAD=new Chart(x2,{type:'line',data:{labels:dc.map(fd),datasets:[{data:vd,borderColor:'#14b8a6',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#14b8a6'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:function(v){return fmt(v)}}}}}});
+var h='';Object.entries(pv).sort(function(a,b){return b[1]-a[1]}).forEach(function(entry,i){
+var n=entry[0],v=entry[1];
+var l=pl[n]||0;
+var p=total>0?(v/total*100):0;
+var c=C[i%C.length];h+='<tr><td class="vn"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+c+';margin-right:8px"></span>'+n+'</td><td>'+l.toFixed(1)+' L</td><td>'+fmt(v)+'</td><td><span class="pb"><span class="pf" style="width:'+p+'%;background:'+c+'"></span></span>'+p.toFixed(1)+'%</td></tr>';});h+='<tr style="background:rgba(20,184,166,0.08);border-top:2px solid #14b8a6;font-weight:700"><td><strong>Total do período</strong></td><td>'+totL.toFixed(1)+' L</td><td><strong>'+fmt(total)+'</strong></td><td>100%</td></tr>';document.getElementById('tbA').innerHTML=h;}
+var absFiltrados = ABASTECIMENTOS.filter(function(a){return a.data >= ini && a.data <= fim;});ra(absFiltrados, ini, fim);
+<div class="kpis" id="kpiA"></div>
+<div class="chart-box" style="height:280px"><canvas id="cA"></canvas></div>
+<div class="chart-box" style="height:240px"><canvas id="cAD"></canvas></div>
+<table class="tbl">
+  <thead>
+    <tr><th>Veículo</th><th>Litros</th><th>Valor</th><th>%</th></tr>
+  </thead>
+  <tbody id="tbA"></tbody>
+</table>   
 function rcV(v){var x=document.getElementById('cV').getContext('2d');if(cV)cV.destroy();cV=new Chart(x,{type:'bar',data:{labels:v.map(function(x){return x.n}),datasets:[{data:v.map(function(x){return x.f}),backgroundColor:v.map(function(_,i){return C[i%C.length]+'cc'}),borderColor:v.map(function(_,i){return C[i%C.length]}),borderWidth:2,borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fm(c.raw)}}}},scales:{x:{ticks:{callback:function(v){return'R$ '+v.toLocaleString('pt-BR')}}}}}})}
 function rcD(ped){var x=document.getElementById('cD').getContext('2d');if(cD)cD.destroy();var pd={};ped.forEach(function(p){if(!pd[p.data])pd[p.data]=0;pd[p.data]+=p.valor});var dk=Object.keys(pd).sort(),vl=dk.map(function(d){return pd[d]});var g=x.createLinearGradient(0,0,0,320);g.addColorStop(0,'rgba(37,99,235,0.3)');g.addColorStop(1,'rgba(37,99,235,0.02)');cD=new Chart(x,{type:'line',data:{labels:dk.map(fd),datasets:[{data:vl,borderColor:'#2563eb',backgroundColor:g,borderWidth:3,fill:true,tension:0.3,pointRadius:4,pointBackgroundColor:'#2563eb'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return fm(c.raw)}}}},scales:{y:{ticks:{callback:function(v){return'R$ '+v.toLocaleString('pt-BR')}}}}}})}
 function rcK(v,ft){var x=document.getElementById('cK').getContext('2d');if(cK)cK.destroy();cK=new Chart(x,{type:'doughnut',data:{labels:v.map(function(x){return x.n}),datasets:[{data:v.map(function(x){return x.f}),backgroundColor:v.map(function(_,i){return C[i%C.length]}),borderColor:'#fff',borderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{padding:16,font:{size:13}}},tooltip:{callbacks:{label:function(c){var p=((c.raw/ft)*100).toFixed(1);return c.label+': '+fm(c.raw)+' ('+p+'%)'}}}}}})}
@@ -995,7 +991,7 @@ def motorista_painel():
     th{{background:#2a1448;}}
     a{{color:#c084fc;}}
     </style></head><body>
-    <h1>🚚 Painel — {m["nome"]}</h1>
+    <h1>🚚 Painel do Motorista — {m["nome"]}</h1>
     <a href="/motorista/logout">Sair</a>
     <div class="form-abastecimento"><h2>⛽ Registrar Abastecimento</h2>
     <form method="POST">
@@ -1011,7 +1007,6 @@ def motorista_painel():
     <div class="kpi"><div class="num">{resumo["qtd"]}</div>Abastecimentos</div>
     <div class="kpi"><div class="num">R$ {resumo["total_valor"]:.2f}</div>Valor Total</div>
     <div class="kpi"><div class="num">{resumo["total_litros"]:.2f} L</div>Total Litros</div>
-    <div class="kpi"><div class="num">{resumo["total_km"]:.0f} km</div>Total Km</div>
     </div>
     <h2>Meus Abastecimentos</h2>
     <table><tr><th>Data</th><th>Veículo</th><th>Litros</th><th>Km</th><th>Valor</th></tr>
