@@ -21,6 +21,45 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'motoristas.d
 
 from functools import wraps
 
+
+VHSYS_BASE = "https://api.vhsys.com/v2"
+VHSYS_ACCESS_TOKEN = os.environ.get('VHSYS_ACCESS_TOKEN', 'afYgGNDHGUUfOTJAHfDMGISOaTZQLH')
+VHSYS_SECRET_TOKEN = os.environ.get('VHSYS_SECRET_TOKEN', 'd7uCnP9cJSZ8PrjQ5xifLYp9Ig2Hiu')
+
+def consultar_pedido_vhsys(id_ped):
+    """Consulta o pedido no Vhsys pelo id_ped."""
+    url = f"{VHSYS_BASE}/pedidos/{id_ped}"
+    headers = {
+        'access-token': VHSYS_ACCESS_TOKEN,
+        'secret-access-token': VHSYS_SECRET_TOKEN,
+        'Cache-Control': 'no-cache',
+        'User-Agent': 'MinhaAplicacao/1.0',
+        'Content-Type': 'application/json'
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=15)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('status') == 'success':
+                p = data['data']
+                # REGRA: pedido da REAL MAIS tem id_ped.
+                # Pedidos da GP usam venda_balcao (não entram no fluxo).
+                if p.get('venda_balcao'):
+                    return {'tipo': 'gp', 'id_ped': id_ped}
+                return {
+                    'tipo': 'real_mais',
+                    'id_ped': p.get('id_ped'),
+                    'nome_cliente': p.get('nome_cliente', ''),
+                    'vendedor': p.get('vendedor_pedido', ''),
+                    'status_vhsys': p.get('status_pedido', ''),
+                }
+        return None
+    except Exception as e:
+        print(f"[ERRO VHSYS] {e}", flush=True)
+        return None
+
+
+
 def login_necessario(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -1664,3 +1703,4 @@ def debug_rm():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+    
