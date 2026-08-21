@@ -1253,7 +1253,7 @@ def login():
         u = users.get(user)
         if u and u["senha_hash"] == hash_senha(senha):
             session['user'] = user
-            if u.get('setor') == 'logistica' or u.get('role') == 'admin_master':
+        if u.get('setor') == 'logistica' or u.get('role') == 'admin_master':
             return redirect('/dashboard')
         return Response(login_page_html("Usuario ou senha invalidos."), mimetype='text/html')
     return Response(login_page_html(), mimetype='text/html')
@@ -1835,5 +1835,6 @@ def debug_rm():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
 
 
