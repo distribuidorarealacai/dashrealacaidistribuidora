@@ -1335,12 +1335,12 @@ def fachada():
 @app.route('/admin/usuarios')
 @requer_admin_master
 def admin_usuarios():
-    users = carregar_usuarios()
+    u = carregar_usuarios()
     if u is None:
         return redirect('/login')
     if u["role"] != "admin_master":
         return "Acesso negado", 403
-    return Response(admin_page_html(users), mimetype='text/html')
+    return Response(admin_page_html(u), mimetype='text/html')
 
 @app.route('/admin/usuarios/novo', methods=['POST'])
 @requer_admin_master
