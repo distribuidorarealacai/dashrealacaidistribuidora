@@ -1654,7 +1654,7 @@ def buscar_pedido_local(numero_nota):
         return None
 
 def buscar_pedido_por_numero(numero):
-    """Busca na listagem de pedidos o pedido pelo número digitado, com paginação."""
+    """Busca na listagem de pedidos o pedido pelo id_pedido digitado, com paginação."""
     numero = str(numero).strip()
     offset = 0
     limit = 250
@@ -1676,14 +1676,8 @@ def buscar_pedido_por_numero(numero):
                 return None
             pedidos = data.get('data', []) or []
             for p in pedidos:
-                # Testa os campos que podem conter o número digitado
-                candidatos = [
-                    str(p.get('id_pedido', '')),
-                    str(p.get('id_ped', '')),
-                    str(p.get('referencia_pedido', '')),
-                    str(p.get('numero_pedido', '')),
-                ]
-                if numero in candidatos:
+                # Busca pelo id_pedido (número que o cliente digita)
+                if str(p.get('id_pedido', '')) == numero:
                     if p.get('venda_balcao'):
                         return {'tipo': 'gp', 'id_pedido': p.get('id_pedido')}
                     return {
@@ -1703,6 +1697,9 @@ def buscar_pedido_por_numero(numero):
             print(f"[ERRO VHSYS LISTAGEM] {e}", flush=True)
             return None
     return None
+
+
+
 
 def acompanhar_page_html(nota, info):
     resultado = ''
