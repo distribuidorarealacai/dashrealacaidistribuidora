@@ -26,6 +26,31 @@ VHSYS_BASE = "https://api.vhsys.com/v2"
 VHSYS_ACCESS_TOKEN = os.environ.get('VHSYS_ACCESS_TOKEN', 'afYgGNDHGUUfOTJAHfDMGISOaTZQLH')
 VHSYS_SECRET_TOKEN = os.environ.get('VHSYS_SECRET_TOKEN', 'd7uCnP9cJSZ8PrjQ5xifLYp9Ig2Hiu')
 
+
+def criar_tabela_pedidos():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero_nota TEXT UNIQUE NOT NULL,
+        nome_cliente TEXT,
+        vendedor TEXT,
+        modo TEXT,
+        status TEXT DEFAULT 'estoque',
+        motorista TEXT,
+        veiculo TEXT,
+        horario_saida TEXT,
+        horario_entrega TEXT,
+        horario_chegada TEXT,
+        criado_em TEXT,
+        atualizado_em TEXT
+    )''')
+    conn.commit()
+    conn.close()
+
+# Chame logo após criar o app (ou no início do código):
+criar_tabela_pedidos()  
+
+
 def consultar_pedido_vhsys(id_ped):
     url = f"{VHSYS_BASE}/pedidos/{id_ped}"
     headers = {
