@@ -545,7 +545,8 @@ nav a{margin:0 8px;font-size:13px;}
 <a href="#vendedoras">Vendedoras</a>
 <a href="#local">Localização</a>
 </nav>
-<a href="/login" class="btn-login">Login / Dashboard</a><a href="/acompanhar" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(59,130,246,.8);border-radius:6px;display:inline-block">Acompanhar Pedido</a>
+<a href="/login" class="btn-login">Login / Dashboard</a>
+<a href="/acompanhar" class="btn-login">Acompanhar Pedido</a>
 </header>
 
 <section class="hero">
@@ -1252,6 +1253,7 @@ def login():
         u = users.get(user)
         if u and u["senha_hash"] == hash_senha(senha):
             session['user'] = user
+            if u.get('setor') == 'logistica' or u.get('role') == 'admin_master':
             return redirect('/dashboard')
         return Response(login_page_html("Usuario ou senha invalidos."), mimetype='text/html')
     return Response(login_page_html(), mimetype='text/html')
@@ -1748,6 +1750,7 @@ def acompanhar_page_html(nota, info):
     <form method="GET" action="/acompanhar">
       <input type="text" name="nota" placeholder="Digite o número do pedido" value="{nota}" required>
       <button type="submit">Consultar</button>
+      <a href="/login" style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:600;display:inline-block;margin-bottom:20px">🔐 Fazer Login</a>
     </form>
     {resultado}
     <a class="back" href="/">← Voltar ao início</a>
@@ -1832,6 +1835,5 @@ def debug_rm():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
 
 
