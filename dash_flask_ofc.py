@@ -112,7 +112,7 @@ def carregar_usuarios():
             pass
     admin_padrao = {
         "admin": {
-            "nome": "Administrador Master",
+            "nome": "Gabriel",
             "senha_hash": hash_senha("Xd@132429"),
             "role": "admin_master",
             "setor": "all"
@@ -150,7 +150,80 @@ def requer_admin_master(f):
         if not u:
             return redirect('/login')
         if u["role"] != 'admin_master':
-            return '<h1 style="color:red;text-align:center;margin-top:100px;font-family:sans-serif">Acesso negado. Apenas o Administrador Master.</h1>'
+            return '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acesso Negado</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Segoe UI', Arial, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #7c3aed 100%);
+    padding:20px;
+  }
+  .card {
+    background:#ffffff;
+    border-radius:16px;
+    padding:48px 40px;
+    max-width:440px;
+    width:100%;
+    text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+  }
+  .icon {
+    width:84px; height:84px;
+    margin:0 auto 24px;
+    border-radius:50%;
+    background:#fee2e2;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .icon svg { width:44px; height:44px; }
+  h1 {
+    color:#b91c1c;
+    font-size:26px;
+    font-weight:700;
+    margin-bottom:12px;
+  }
+  p {
+    color:#4b5563;
+    font-size:15px;
+    line-height:1.6;
+    margin-bottom:28px;
+  }
+  .btn {
+    display:inline-block;
+    background:#2563eb;
+    color:#fff;
+    text-decoration:none;
+    font-size:15px;
+    font-weight:600;
+    padding:12px 28px;
+    border-radius:8px;
+    transition:background .2s;
+  }
+  .btn:hover { background:#1d4ed8; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#b91c1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+    </div>
+    <h1>Acesso Negado</h1>
+    <p>Você não tem permissão para acessar esta página.<br>Entre em contato com o Desenvolvedor.</p>
+    <a class="btn" href="/dashboard">Voltar ao Início</a>
+  </div>
+</body>
+</html>'''
         return f(*args, **kwargs)
     wrap.__name__ = f.__name__
     return wrap
@@ -736,11 +809,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 </style>
 </head>
 <body>
-<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">__USER_NAME__</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:none">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
+<div class="hdr"><div class="hdr-logo"><img src="/logo" alt="Logo" style="height:80px;border-radius:10px;object-fit:contain;background:#fff;padding:6px 10px;" onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"><div id="logoFallback" style="display:none;width:80px;height:80px;border-radius:10px;background:#fff;color:#2563eb;align-items:center;justify-content:center;font-size:32px;font-weight:900;flex-shrink:0;">RA</div><div><h1>Real Acai Distribuidora</h1><div class="sub">Dashboard Gerencial - Vhsys API v2</div></div></div><div style="display:flex;align-items:center;gap:16px"><div class="upd">Dados gerados em: __DG__</div><div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px"><span style="font-size:14px;font-weight:600">nome</span><a href="/admin/usuarios" id="btnUsuarios" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(22,163,74,.8);border-radius:6px;display:__SHOW_MASTER__">Usuarios</a><a href="/logout" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(220,38,38,.8);border-radius:6px">Sair</a></div></div></div>
 <div class="tabs" id="navTabs">
-<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)">Comercial</button>
-<button class="tab" data-sector="logistica" onclick="sw('logistica',this)">Logistica</button>
-<button class="tab" data-sector="contabil" onclick="sw('contabil',this)">Contabil</button>
+<button class="tab act" data-sector="comercial" onclick="sw('comercial',this)" style="display:__SHOW_COMERCIAL__">Comercial</button>
+<button class="tab" data-sector="logistica" onclick="sw('logistica',this)" style="display:__SHOW_LOGISTICA__">Logistica</button>
+<button class="tab" data-sector="contabil" onclick="sw('contabil',this)" style="display:__SHOW_CONTABIL__">Contabil</button>
 </div>
 <div class="ctn">
 <div class="fb"><div class="fg"><label>De</label><input type="date" id="dIni" value="__MIN__"></div><div class="fg"><label>Ate</label><input type="date" id="dFim" value="__MAX__"></div><button class="ba" onclick="af()">Aplicar</button><div style="margin-left:auto;display:flex;gap:8px"><button class="bp" onclick="ph()">Hoje</button><button class="bp" onclick="p7()">7d</button><button class="bp" onclick="pm()">Mes</button><button class="bp" onclick="pt()">Tudo</button></div></div>
@@ -1149,33 +1222,39 @@ def logout():
     session.clear()
     return redirect('/login')
 
+def _aplicar_permissoes(html, u):
+    setor = u["setor"]
+    is_master = u["role"] == "admin_master"
+    html = html.replace("__USER_NAME__", u["nome"])
+    html = html.replace("__USER_SECTOR__", setor)
+    html = html.replace("__USER_ROLE__", u["role"])
+    html = html.replace("__IS_MASTER__", "1" if is_master else "0")
+    html = html.replace("__SHOW_MASTER__", "inline-block" if is_master else "none")
+    html = html.replace("__SHOW_COMERCIAL__", "inline-block" if (is_master or setor == "comercial") else "none")
+    html = html.replace("__SHOW_LOGISTICA__", "inline-block" if (is_master or setor == "logistica") else "none")
+    html = html.replace("__SHOW_CONTABIL__", "inline-block" if (is_master or setor == "contabil") else "none")
+    return html
+
 @app.route('/dashboard')
 @requer_login
 def dashboard():
     u = usuario_logado()
     with _cache_lock:
         if _cache["html"] and (time.time() - _cache["timestamp"]) < CACHE_TEMPO_SEGUNDOS:
-            html = _cache["html"]
-            html = html.replace("__USER_NAME__", u["nome"])
-            html = html.replace("__USER_SECTOR__", u["setor"])
-            html = html.replace("__USER_ROLE__", u["role"])
-            html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
-            return Response(html, mimetype='text/html')
+            return Response(_aplicar_permissoes(_cache["html"], u), mimetype='text/html')
     print("[DEBUG] Cache vazio, buscando dados...", flush=True)
     try:
         todos = buscar_dados_mes_atual()
         ent = ler_dados_entregas()
         html = gerar_dashboard_html(todos, ent)
-        html = html.replace("__USER_NAME__", u["nome"])
-        html = html.replace("__USER_SECTOR__", u["setor"])
-        html = html.replace("__USER_ROLE__", u["role"])
-        html = html.replace("__IS_MASTER__", "1" if u["role"] == "admin_master" else "0")
         with _cache_lock:
             _cache["timestamp"] = time.time()
             _cache["html"] = html
-        return Response(html, mimetype='text/html')
+        return Response(_aplicar_permissoes(html, u), mimetype='text/html')
     except Exception as e:
         return f"<h1 style='color:red;text-align:center;margin-top:100px;font-family:sans-serif'>Erro: {e}</h1>"
+
+
 
 @app.route('/atualizar')
 def forcar_atualizacao():
@@ -1257,6 +1336,10 @@ def fachada():
 @requer_admin_master
 def admin_usuarios():
     users = carregar_usuarios()
+    if u is None:
+        return redirect('/login')
+    if u["role"] != "admin_master":
+        return "Acesso negado", 403
     return Response(admin_page_html(users), mimetype='text/html')
 
 @app.route('/admin/usuarios/novo', methods=['POST'])
