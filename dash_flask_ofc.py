@@ -28,23 +28,23 @@ VHSYS_SECRET_TOKEN = os.environ.get('VHSYS_SECRET_TOKEN', 'd7uCnP9cJSZ8PrjQ5xifL
 
 
 def criar_tabela_pedidos():
-       conn = sqlite3.connect(DB_PATH)
-       conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            numero_nota TEXT UNIQUE NOT NULL,
-            nome_cliente TEXT,
-            vendedor TEXT,
-            modo TEXT,
-            status TEXT DEFAULT 'estoque',
-            motorista TEXT,
-            veiculo TEXT,
-            horario_saida TEXT,
-            horario_entrega TEXT,
-            horario_chegada TEXT,
-            criado_em TEXT,
-            atualizado_em TEXT)''')
-            conn.commit()
-            conn.close()
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    numero_nota TEXT UNIQUE NOT NULL,
+    nome_cliente TEXT,
+    vendedor TEXT,
+    modo TEXT,
+    status TEXT DEFAULT 'estoque',
+    motorista TEXT,
+    veiculo TEXT,
+    horario_saida TEXT,
+    horario_entrega TEXT,
+    horario_chegada TEXT,
+    criado_em TEXT,
+    atualizado_em TEXT)''')
+    conn.commit()
+    conn.close()
 criar_tabela_pedidos()   # chame no início do app 
 
 
