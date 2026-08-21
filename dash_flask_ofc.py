@@ -48,8 +48,8 @@ def criar_tabela_pedidos():
 criar_tabela_pedidos()   # chame no início do app 
 
 
-def consultar_pedido_vhsys(id_ped):
-    url = f"{VHSYS_BASE}/pedidos/{id_ped}"
+def consultar_pedido_vhsys(id_pedido):
+    url = f"{VHSYS_BASE}/pedidos/{id_pedido}"
     headers = {
         'access-token': VHSYS_ACCESS_TOKEN,
         'secret-access-token': VHSYS_SECRET_TOKEN,
@@ -68,10 +68,10 @@ def consultar_pedido_vhsys(id_ped):
             if data.get('status') == 'success':
                 p = data['data']
                 if p.get('venda_balcao'):
-                    return {'tipo': 'gp', 'id_ped': id_ped}
+                    return {'tipo': 'gp', 'id_ped': id_pedido}
                 return {
                     'tipo': 'real_mais',
-                    'id_ped': p.get('id_ped'),
+                    'id_pedido': p.get('id_pedido'),
                     'nome_cliente': p.get('nome_cliente', ''),
                     'vendedor': p.get('vendedor_pedido', ''),
                     'status_vhsys': p.get('status_pedido', ''),
@@ -423,7 +423,7 @@ def processar_pedidos(pedidos, empresa):
         try: vl = float(p.get("valor_total_nota","0") or "0")
         except: vl = 0.0
         vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome(p.get("vendedor_pedido",""))
-        procs.append({"id": str(p.get("id_ped", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
+        procs.append({"id": str(p.get("id_pedido", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
     return procs
 
 def buscar_compras_periodo(empresa, di, df):
@@ -1712,7 +1712,7 @@ def buscar_pedido_por_numero(numero):
                     ]
                     if numero in candidatos:
                         if p.get('venda_balcao'):
-                            return {'tipo': 'gp', 'id_ped': p.get('id_ped')}
+                            return {'tipo': 'gp', 'id_pedido': p.get('id_pedido')}
                         return {
                             'tipo': 'real_mais',
                             'id_ped': p.get('id_ped'),
