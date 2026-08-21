@@ -390,7 +390,7 @@ def processar_pedidos(pedidos, empresa):
         try: vl = float(p.get("valor_total_nota","0") or "0")
         except: vl = 0.0
         vd = "GP DISTRIBUIDORA" if en == "GP DISTRIBUIDORA" else normalizar_nome(p.get("vendedor_pedido",""))
-        procs.append({"id": str(p.get("id_pedido", p.get("id_frente", p.get("id_pedido","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
+        procs.append({"id": str(p.get("id_ped", p.get("id_frente", p.get("id_ped","")))), "data": normalizar_data(p.get(dfield,"")), "vendedor": vd, "empresa": en, "valor": round(vl,2), "status": st, "cliente": p.get("nome_cliente","")})
     return procs
 
 def buscar_compras_periodo(empresa, di, df):
@@ -1654,7 +1654,7 @@ def buscar_pedido_local(numero_nota):
         return None
 
 def buscar_pedido_por_numero(numero):
-    """Busca na listagem de pedidos o pedido pelo id_pedido digitado, com paginação."""
+    """Busca na listagem de pedidos o pedido pelo id_ped digitado, com paginação."""
     numero = str(numero).strip()
     offset = 0
     limit = 250
@@ -1676,14 +1676,14 @@ def buscar_pedido_por_numero(numero):
                 return None
             pedidos = data.get('data', []) or []
             for p in pedidos:
-                # Busca pelo id_pedido (número que o cliente digita)
-                if str(p.get('id_pedido', '')) == numero:
+                # Busca pelo id_ped (número que o cliente digita)
+                if str(p.get('id_ped', '')) == numero:
                     if p.get('venda_balcao'):
-                        return {'tipo': 'gp', 'id_pedido': p.get('id_pedido')}
+                        return {'tipo': 'gp', 'id_ped': p.get('id_ped')}
                     return {
                         'tipo': 'real_mais',
                         'id_ped': p.get('id_ped'),
-                        'id_pedido': p.get('id_pedido'),
+                        'id_ped': p.get('id_ped'),
                         'nome_cliente': p.get('nome_cliente', ''),
                         'vendedor': p.get('vendedor_pedido', ''),
                         'status_vhsys': p.get('status_pedido', ''),
