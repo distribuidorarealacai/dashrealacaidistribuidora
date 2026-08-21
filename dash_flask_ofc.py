@@ -1668,8 +1668,9 @@ def consultar_pedido_vhsys(id_ped):
     }
     try:
         res = requests.get(url, headers=headers, timeout=20)
+        print(f"[VHSYS] URL: {url} | Status: {res.status_code}", flush=True)
+        print(f"[VHSYS] Resposta: {res.text[:500]}", flush=True)  # ← mostra o que a API retorna
         if res.status_code != 200:
-            print(f"[VHSYS] status {res.status_code}", flush=True)
             return None
         data = res.json()
         if data.get('status') != 'success':
@@ -1685,7 +1686,6 @@ def consultar_pedido_vhsys(id_ped):
     except Exception as e:
         print(f"[ERRO VHSYS] {e}", flush=True)
         return None
-
 
 
 def acompanhar_page_html(nota, info):
