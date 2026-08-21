@@ -1334,11 +1334,11 @@ def fachada():
 
 @app.route('/admin/usuarios')
 @requer_admin_master
-def admin_usuarios():
+def admin_usuarios():   
     u = usuario_logado()
     if u is None:
         return redirect('/login')
-    if u.get["role"] != "admin_master":
+    if u.get("role") != "admin_master":
         return "Acesso negado", 403
     u = carregar_usuarios()
     return Response(admin_page_html(u), mimetype='text/html')
