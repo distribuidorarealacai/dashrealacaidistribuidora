@@ -1750,7 +1750,7 @@ def acompanhar_page_html(nota, info):
     <form method="GET" action="/acompanhar">
       <input type="text" name="nota" placeholder="Digite o número do pedido" value="{nota}" required>
       <button type="submit">Consultar</button>
-      <a href="/login" style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:600;display:inline-block;margin-bottom:20px">🔐 Fazer Login</a>
+      <a href="/logistica" style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:600;display:inline-block;margin-bottom:20px">🔐 Fazer Login</a>
     </form>
     {resultado}
     <a class="back" href="/">← Voltar ao início</a>
@@ -1758,6 +1758,177 @@ def acompanhar_page_html(nota, info):
 </body>
 </html>'''
 
+
+@app.route('/logistica', methods=['GET', 'POST'])
+def logistica():
+    # ===== LOGIN (usa as credenciais do dashboard) =====
+    if request.method == 'POST' and request.form.get('acao') == 'login':
+        user = request.form.get('user', '').strip()
+        senha = request.form.get('senha', '')
+        users = carregar_usuarios()
+        u = users.get(user)
+        if u and u["senha_hash"] == hash_senha(senha) and (u.get('setor') == 'logistica' or u.get('role') == 'admin_master'):
+            session['user'] = user
+            return redirect('/logistica')
+        return Response(logistica_login_html("Usuário ou senha inválidos, ou acesso restrito à logística."), mimetype='text/html')
+
+    # ===== SE NÃO ESTÁ LOGADO, MOSTRA O LOGIN =====
+    if 'user' not in session:
+        return Response(logistica_login_html(), mimetype='text/html')
+
+    # ===== LOGADO: PAINEL DO COLABORADOR =====
+    u = carregar_usuarios().get(session['user'], {})
+    if u.get('setor') != 'logistica' and u.get('role') != 'admin_master':
+        return 'Acesso negado', 403
+
+    nota = request.args.get('nota', '').strip()
+    pedido = None
+    if nota:
+        pedido = buscar_pedido_local(nota)
+        if pedido is None:
+            v = consultar_pedido_vhsys(nota)
+            if v and v.get('tipo') == 'real_mais':
+                pedido = {'numero_nota': nota, 'nome_cliente': v['nome_cliente'], 'vendedor': v['vendedor'], 'modo': '', 'status': 'estoque'}
+                salvar_pedido_local(nota, v['nome_cliente'], v['vendedor'])
+            elif v and v.get('tipo') == 'gp':
+                pedido = {'numero_nota': nota, 'nome_cliente': '', 'vendedor': '', 'modo': '', 'status': 'gp'}
+    return Response(logistica_painel_html(u, nota, pedido), mimetype='text/html')
+
+def salvar_pedido_local(numero_nota, nome_cliente, vendedor):
+    """Cria o pedido no banco se ainda não existir."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute('''INSERT OR IGNORE INTO pedidos (numero_nota, nome_cliente, vendedor, status)
+                    VALUES (?, ?, ?, 'estoque')''', (str(numero_nota), nome_cliente, vendedor))
+    conn.commit()
+    conn.close()
+
+def atualizar_pedido_local(numero_nota, campos):
+    """Atualiza campos do pedido (modo, status, motorista, horários...)."""
+    conn = sqlite3.connect(DB_PATH)
+    colunas = ', '.join([f"{k} = ?" for k in campos.keys()])
+    valores = list(campos.values()) + [str(numero_nota)]
+    conn.execute(f"UPDATE pedidos SET {colunas}, atualizado_em = datetime('now') WHERE numero_nota = ?", valores)
+    conn.commit()
+    conn.close()
+
+
+def logistica_login_html(erro=''):
+    erro_html = f'<div style="background:#fee2e2;color:#b91c1c;padding:10px;border-radius:8px;margin-bottom:16px;text-align:center;font-size:14px">{erro}</div>' if erro else ''
+    return f'''<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acesso Logística</title><style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a8a,#2563eb 50%,#7c3aed);padding:20px}}
+.card{{background:#fff;border-radius:16px;padding:40px 32px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}}
+h1{{font-size:22px;text-align:center;margin-bottom:8px;color:#1f2937}}
+.sub{{text-align:center;color:#6b7280;font-size:14px;margin-bottom:24px}}
+label{{display:block;font-size:13px;color:#374151;margin-bottom:6px;font-weight:500}}
+input{{width:100%;padding:12px;font-size:15px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:16px}}
+input:focus{{outline:none;border-color:#2563eb}}
+button{{width:100%;padding:13px;font-size:15px;font-weight:600;background:#2563eb;color:#fff;border:none;border-radius:50px;cursor:pointer}}
+button:hover{{background:#1d4ed8}}
+.back{{display:block;text-align:center;margin-top:16px;color:#6b7280;text-decoration:none;font-size:14px}}
+</style></head><body>
+<div class="card">
+<h1>🔐 Acesso Logística</h1>
+<div class="sub">Use seu login do dashboard</div>
+{erro_html}
+<form method="POST" action="/logistica">
+<input type="hidden" name="acao" value="login">
+<label>Usuário</label>
+<input type="text" name="user" placeholder="Seu usuário" required>
+<label>Senha</label>
+<input type="password" name="senha" placeholder="Sua senha" required>
+<button type="submit">Entrar</button>
+</form>
+<a class="back" href="/acompanhar">← Voltar ao acompanhamento</a>
+</div></body></html>'''
+
+
+def logistica_painel_html(u, nota, pedido):
+    # Formulário de busca da nota
+    busca = f'''
+    <form method="GET" action="/logistica" style="display:flex;gap:8px;margin-bottom:16px">
+      <input type="text" name="nota" placeholder="Digite o número da nota" value="{nota}" style="flex:1;padding:12px;border:2px solid #e5e7eb;border-radius:8px" required>
+      <button type="submit" style="padding:12px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Reconhecer</button>
+    </form>'''
+
+    corpo = ''
+    if nota and pedido is None:
+        corpo = '<div style="background:#fee2e2;color:#b91c1c;padding:14px;border-radius:8px;text-align:center">Nota não encontrada no Vhsys.</div>'
+    elif pedido and pedido.get('status') == 'gp':
+        corpo = '<div style="background:#f3f4f6;color:#374151;padding:14px;border-radius:8px;text-align:center">Este pedido é de loja física (GP) — sem entrega/retirada.</div>'
+    elif pedido:
+        # Passo 1: mostrar nome do cliente + escolher modo
+        modo_atual = pedido.get('modo', '')
+        corpo = f'''
+        <div style="background:#eff6ff;padding:16px;border-radius:8px;margin-bottom:16px">
+          <div style="font-size:14px;color:#374151">Nota: <b>{pedido["numero_nota"]}</b></div>
+          <div style="font-size:16px;color:#1e40af;font-weight:700;margin-top:4px">Cliente: {pedido.get("nome_cliente", "")}</div>
+        </div>'''
+
+        # Se ainda não escolheu o modo, mostra a escolha
+        if not modo_atual:
+            corpo += '''
+            <div style="margin-bottom:16px">
+              <div style="font-weight:600;margin-bottom:8px">Este pedido é para:</div>
+              <div style="display:flex;gap:8px">
+                <form method="POST" action="/logistica/modo" style="flex:1">
+                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="modo" value="entrega">
+                  <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🚚 Entrega</button>
+                </form>
+                <form method="POST" action="/logistica/modo" style="flex:1">
+                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="modo" value="retirada">
+                  <button type="submit" style="width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🏬 Retirada</button>
+                </form>
+              </div>
+            </div>'''
+        else:
+            corpo += f'<div style="background:#d1fae5;color:#065f46;padding:10px;border-radius:8px;margin-bottom:16px;text-align:center">Modo: <b>{"Entrega" if modo_atual == "entrega" else "Retirada"}</b></div>'
+
+            # RETIRADA: botão "Pronto para retirada"
+            if modo_atual == 'retirada':
+                corpo += '''
+                <form method="POST" action="/logistica/status" style="margin-bottom:16px">
+                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="status" value="pronto_retirada">
+                  <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
+                </form>'''
+
+            # ENTREGA: fluxo de motorista e horários
+            else:
+                corpo += '''
+                <form method="POST" action="/logistica/status" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
+                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="status" value="saiu_entrega">
+                  <label>Motorista</label>
+                  <input type="text" name="motorista" placeholder="Nome do motorista" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                  <label>Veículo</label>
+                  <input type="text" name="veiculo" placeholder="Veículo utilizado" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                  <label>Horário de saída</label>
+                  <input type="time" name="horario_saida" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                  <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🚚 O Pedido Saiu para Entrega</button>
+                </form>'''
+
+    return f'''<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Logística</title><style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Segoe UI',Arial,sans-serif;min-height:100vh;background:#f3f4f6;padding:20px}}
+.topbar{{background:#1e3a8a;color:#fff;padding:14px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}}
+.card{{background:#fff;border-radius:12px;padding:24px;max-width:560px;margin:0 auto;box-shadow:0 4px 20px rgba(0,0,0,.08)}}
+h1{{font-size:20px;margin-bottom:16px;color:#1f2937}}
+label{{display:block;font-size:13px;color:#374151;margin-bottom:6px;font-weight:500}}
+a{{color:#bfdbfe;text-decoration:none;font-size:14px}}
+</style></head><body>
+<div class="topbar"><b>Painel Logística</b><span>Olá, {u.get("nome", u.get("user", ""))} · <a href="/logout">Sair</a></span></div>
+<div class="card">
+<h1>📦 Reconhecer Pedido</h1>
+{busca}
+{corpo}
+</div></body></html>'''
 
 @app.route('/api/metas', methods=['GET', 'POST'])
 def api_metas():
@@ -1835,6 +2006,5 @@ def debug_rm():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
 
 
