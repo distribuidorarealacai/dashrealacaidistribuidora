@@ -545,7 +545,7 @@ nav a{margin:0 8px;font-size:13px;}
 <a href="#vendedoras">Vendedoras</a>
 <a href="#local">Localização</a>
 </nav>
-<a href="/login" class="btn-login">Login / Dashboard</a>
+<a href="/login" class="btn-login">Login / Dashboard</a><a href="/acompanhar" style="color:#fff;text-decoration:none;font-size:13px;padding:4px 10px;background:rgba(59,130,246,.8);border-radius:6px;display:inline-block">Acompanhar Pedido</a>
 </header>
 
 <section class="hero">
@@ -1626,6 +1626,135 @@ def cmv_endpoint():
             return jsonify({"status": "calculando"})
     threading.Thread(target=calcular_cmv_background, args=(di, df, eirm, eigp, efrm, efgp), daemon=True).start()
     return jsonify({"status": "iniciando"})
+# ===== SISTEMA DE ACOMPANHAR PEDIDO =====
+
+@app.route('/acompanhar')
+def acompanhar():
+    nota = request.args.get('nota', '').strip()
+    info = None
+    if nota:
+        info = buscar_pedido_local(nota)
+        if info is None:
+            v = consultar_pedido_vhsys(nota)
+            if v and v.get('tipo') == 'real_mais':
+                info = {
+                    'status': 'estoque',
+                    'nome_cliente': v['nome_cliente'],
+                    'vendedor': v['vendedor'],
+                }
+            elif v and v.get('tipo') == 'gp':
+                info = {'status': 'gp', 'nome_cliente': '', 'vendedor': ''}
+    return Response(acompanhar_page_html(nota, info), mimetype='text/html')
+
+def buscar_pedido_local(numero_nota):
+    """Busca o status do pedido salvo no banco local."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM pedidos WHERE numero_nota = ?", (str(numero_nota),))
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return dict(row)
+        return None
+    except Exception as e:
+        print(f"[ERRO buscar_pedido_local] {e}", flush=True)
+        return None
+
+def acompanhar_page_html(nota, info):
+    resultado = ''
+    if nota and info is None:
+        resultado = '<div style="background:#fee2e2;color:#b91c1c;padding:14px;border-radius:8px;margin-top:16px;text-align:center">Nota não encontrada. Verifique o número e tente novamente.</div>'
+    elif info:
+        if info['status'] == 'gp':
+            resultado = '<div style="background:#f3f4f6;color:#374151;padding:14px;border-radius:8px;margin-top:16px;text-align:center">Este pedido é de loja física (GP) e não possui acompanhamento de entrega.</div>'
+        elif info['status'] == 'estoque':
+            resultado = f'''
+            <div style="background:#fef3c7;color:#92400e;padding:20px;border-radius:8px;margin-top:16px;text-align:center">
+                <div style="font-size:18px;font-weight:700;margin-bottom:8px">📦 Pedido em Estoque</div>
+                <div>Cliente: <b>{info.get("nome_cliente", "")}</b></div>
+                <div style="margin-top:6px;color:#6b7280">Seu pedido ainda está em estoque e será processado em breve.</div>
+            </div>'''
+        elif info['status'] == 'pronto_retirada':
+            resultado = f'''
+            <div style="background:#d1fae5;color:#065f46;padding:20px;border-radius:8px;margin-top:16px;text-align:center">
+                <div style="font-size:18px;font-weight:700;margin-bottom:8px">✅ Pedido Pronto para Retirada</div>
+                <div>Cliente: <b>{info.get("nome_cliente", "")}</b></div>
+                <div style="margin-top:6px;color:#6b7280">Seu pedido já está separado e pronto para retirada.</div>
+            </div>'''
+        elif info['status'] == 'saiu_entrega':
+            resultado = f'''
+            <div style="background:#dbeafe;color:#1e40af;padding:20px;border-radius:8px;margin-top:16px;text-align:center">
+                <div style="font-size:18px;font-weight:700;margin-bottom:8px">🚚 O Pedido Saiu para Entrega</div>
+                <div>Cliente: <b>{info.get("nome_cliente", "")}</b></div>
+                <div style="margin-top:6px;color:#6b7280">Seu pedido está a caminho. Em breve será entregue.</div>
+            </div>'''
+        elif info['status'] == 'entregue':
+            resultado = f'''
+            <div style="background:#d1fae5;color:#065f46;padding:20px;border-radius:8px;margin-top:16px;text-align:center">
+                <div style="font-size:18px;font-weight:700;margin-bottom:8px">🎉 Pedido Entregue!</div>
+                <div>Cliente: <b>{info.get("nome_cliente", "")}</b></div>
+                <div style="margin-top:6px;color:#6b7280">Em caso de dúvidas, entre em contato.</div>
+                <div style="margin-top:10px;font-size:14px;color:#374151">Vendedora: <b>{info.get("vendedor", "")}</b></div>
+            </div>'''
+
+    return f'''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acompanhar Pedido</title>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{
+    font-family:'Segoe UI', Arial, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #7c3aed 100%);
+    padding:20px;
+  }}
+  .card {{
+    background:#fff;
+    border-radius:16px;
+    padding:40px 32px;
+    max-width:480px;
+    width:100%;
+    box-shadow:0 20px 60px rgba(0,0,0,0.35);
+  }}
+  h1 {{ font-size:24px; text-align:center; margin-bottom:8px; color:#1f2937; }}
+  .sub {{ text-align:center; color:#6b7280; font-size:14px; margin-bottom:24px; }}
+  input {{
+    width:100%; padding:14px; font-size:16px;
+    border:2px solid #e5e7eb; border-radius:8px;
+    margin-bottom:12px; text-align:center;
+  }}
+  input:focus {{ outline:none; border-color:#2563eb; }}
+  button {{
+    width:100%; padding:14px; font-size:16px; font-weight:600;
+    background:#2563eb; color:#fff; border:none; border-radius:8px;
+    cursor:pointer; transition:background .2s;
+  }}
+  button:hover {{ background:#1d4ed8; }}
+  .back {{ display:block; text-align:center; margin-top:16px; color:#6b7280; text-decoration:none; font-size:14px; }}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔍 Acompanhar Pedido</h1>
+    <div class="sub">Digite o número da sua nota para ver o status</div>
+    <form method="GET" action="/acompanhar">
+      <input type="text" name="nota" placeholder="Digite o número do pedido" value="{nota}" required>
+      <button type="submit">Consultar</button>
+    </form>
+    {resultado}
+    <a class="back" href="/">← Voltar ao início</a>
+  </div>
+</body>
+</html>'''
+
 
 @app.route('/api/metas', methods=['GET', 'POST'])
 def api_metas():
@@ -1703,4 +1832,6 @@ def debug_rm():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-    
+
+
+
