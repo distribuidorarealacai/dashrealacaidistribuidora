@@ -1637,7 +1637,7 @@ def acompanhar():
     if nota:
         info = buscar_pedido_local(nota)
         if info is None:
-            v = consultar_pedido_vhsys(nota)
+            v = buscar_pedido_por_numero(nota)
             if v and v.get('tipo') == 'real_mais':
                 info = {
                     'status': 'estoque',
@@ -1663,6 +1663,48 @@ def buscar_pedido_local(numero_nota):
     except Exception as e:
         print(f"[ERRO buscar_pedido_local] {e}", flush=True)
         return None
+
+def buscar_pedido_por_numero(numero):
+    """Busca na listagem de pedidos o pedido pelo número digitado pelo cliente."""
+    url = f"{VHSYS_BASE}/pedidos"
+    headers = {
+        'access-token': VHSYS_ACCESS_TOKEN,
+        'secret-access-token': VHSYS_SECRET_TOKEN,
+        'Cache-Control': 'no-cache',
+        'User-Agent': 'MinhaAplicacao/1.0',
+        'Content-Type': 'application/json'
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=20)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get('status') == 'success':
+                pedidos = data.get('data', []) or []
+                numero = str(numero).strip()
+                for p in pedidos:
+                    # Testa os campos que podem conter o número digitado
+                    candidatos = [
+                        str(p.get('id_pedido', '')),   # número de exibição (40680)
+                        str(p.get('id_ped', '')),      # ID interno
+                        str(p.get('referencia_pedido', '')),
+                    ]
+                    if numero in candidatos:
+                        # Encontrou! Verifica se é GP ou REAL MAIS
+                        if p.get('venda_balcao'):
+                            return {'tipo': 'gp', 'id_ped': p.get('id_ped')}
+                        return {
+                            'tipo': 'real_mais',
+                            'id_ped': p.get('id_ped'),
+                            'id_pedido': p.get('id_pedido'),
+                            'nome_cliente': p.get('nome_cliente', ''),
+                            'vendedor': p.get('vendedor_pedido', ''),
+                            'status_vhsys': p.get('status_pedido', ''),
+                        }
+        return None
+    except Exception as e:
+        print(f"[ERRO VHSYS LISTAGEM] {e}", flush=True)
+        return None
+
 
 def acompanhar_page_html(nota, info):
     resultado = ''
@@ -1786,7 +1828,7 @@ def logistica():
     if nota:
         pedido = buscar_pedido_local(nota)
         if pedido is None:
-            v = consultar_pedido_vhsys(nota)
+            v = buscar_pedido_por_numero(nota)
             if v and v.get('tipo') == 'real_mais':
                 pedido = {'numero_nota': nota, 'nome_cliente': v['nome_cliente'], 'vendedor': v['vendedor'], 'modo': '', 'status': 'estoque'}
                 salvar_pedido_local(nota, v['nome_cliente'], v['vendedor'])
