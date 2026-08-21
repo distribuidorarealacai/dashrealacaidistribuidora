@@ -1653,50 +1653,38 @@ def buscar_pedido_local(numero_nota):
         print(f"[ERRO buscar_pedido_local] {e}", flush=True)
         return None
 
-def buscar_pedido_por_numero(numero):
-    """Busca na listagem de pedidos o pedido pelo id_pedido (número digitado), com paginação."""
-    numero = str(numero).strip()
-    offset = 0
-    limit = 250
+
+
+def consultar_pedido_vhsys(id_ped):
+    url = f"https://api.vhsys.com/v2/pedidos/{id_ped}"
     headers = {
-        'access-token': VHSYS_ACCESS_TOKEN,
-        'secret-access-token': VHSYS_SECRET_TOKEN,
+        'access-token': 'afYgGNDHGUUfOTJAHfDMGISOaTZQLH',
+        'secret-access-token': 'd7uCnP9cJSZ8PrjQ5xifLYp9Ig2Hiu',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
         'Cache-Control': 'no-cache',
-        'User-Agent': 'MinhaAplicacao/1.0',
         'Content-Type': 'application/json'
     }
-    while True:
-        url = f"{VHSYS_BASE}/pedidos?offset={offset}&limit={limit}"
-        try:
-            res = requests.get(url, headers=headers, timeout=20)
-            if res.status_code != 200:
-                return None
-            data = res.json()
-            if data.get('status') != 'success':
-                return None
-            pedidos = data.get('data', []) or []
-            for p in pedidos:
-                # Busca pelo id_pedido (número que o cliente digita)
-                if str(p.get('id_pedido', '')) == numero:
-                    if p.get('venda_balcao'):
-                        return {'tipo': 'gp', 'id_pedido': p.get('id_pedido')}
-                    return {
-                        'tipo': 'real_mais',
-                        'id_ped': p.get('id_ped'),
-                        'id_pedido': p.get('id_pedido'),
-                        'nome_cliente': p.get('nome_cliente', ''),
-                        'vendedor': p.get('vendedor_pedido', ''),
-                        'status_vhsys': p.get('status_pedido', ''),
-                    }
-            # Paginação
-            total = data.get('paging', {}).get('total_count', 0)
-            offset += len(pedidos)
-            if not pedidos or offset >= total:
-                break
-        except Exception as e:
-            print(f"[ERRO VHSYS LISTAGEM] {e}", flush=True)
+    try:
+        res = requests.get(url, headers=headers, timeout=20)
+        if res.status_code != 200:
+            print(f"[VHSYS] status {res.status_code}", flush=True)
             return None
-    return None
+        data = res.json()
+        if data.get('status') != 'success':
+            return None
+        p = data.get('data', {})
+        return {
+            'id_ped': p.get('id_ped'),
+            'nome_cliente': p.get('nome_cliente', ''),
+            'vendedor': p.get('vendedor_pedido', ''),
+            'valor_total_nota': p.get('valor_total_nota', ''),
+            'status_vhsys': p.get('status_pedido', ''),
+        }
+    except Exception as e:
+        print(f"[ERRO VHSYS] {e}", flush=True)
+        return None
 
 
 
