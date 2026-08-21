@@ -1225,7 +1225,7 @@ def logout():
 def _aplicar_permissoes(html, u):
     setor = u["setor"]
     is_master = u["role"] == "admin_master"
-    html = html.replace("__USER_NAME__", u["user"])
+    html = html.replace("__USER_NAME__", u["nome"])
     html = html.replace("__USER_SECTOR__", setor)
     html = html.replace("__USER_ROLE__", u["role"])
     html = html.replace("__IS_MASTER__", "1" if is_master else "0")
