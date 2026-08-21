@@ -48,39 +48,6 @@ def criar_tabela_pedidos():
 criar_tabela_pedidos()   # chame no início do app 
 
 
-def consultar_pedido_vhsys(id_pedido):
-    url = f"{VHSYS_BASE}/pedidos/{id_pedido}"
-    headers = {
-        'access-token': VHSYS_ACCESS_TOKEN,
-        'secret-access-token': VHSYS_SECRET_TOKEN,
-        'Cache-Control': 'no-cache',
-        'User-Agent': 'MinhaAplicacao/1.0',
-        'Content-Type': 'application/json'
-    }
-    try:
-        res = requests.get(url, headers=headers, timeout=15)
-        # 🔍 LOG DE DEPURAÇÃO - veja o que a API retorna
-        print(f"[VHSYS DEBUG] URL={url}", flush=True)
-        print(f"[VHSYS DEBUG] status_code={res.status_code}", flush=True)
-        print(f"[VHSYS DEBUG] resposta={res.text[:2000]}", flush=True)
-        if res.status_code == 200:
-            data = res.json()
-            if data.get('status') == 'success':
-                p = data['data']
-                if p.get('venda_balcao'):
-                    return {'tipo': 'gp', 'id_ped': id_pedido}
-                return {
-                    'tipo': 'real_mais',
-                    'id_pedido': p.get('id_pedido'),
-                    'nome_cliente': p.get('nome_cliente', ''),
-                    'vendedor': p.get('vendedor_pedido', ''),
-                    'status_vhsys': p.get('status_pedido', ''),
-                }
-        return None
-    except Exception as e:
-        print(f"[ERRO VHSYS] {e}", flush=True)
-        return None
-
 
 def login_necessario(f):
     @wraps(f)
