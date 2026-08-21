@@ -27,28 +27,26 @@ VHSYS_ACCESS_TOKEN = os.environ.get('VHSYS_ACCESS_TOKEN', 'afYgGNDHGUUfOTJAHfDMG
 VHSYS_SECRET_TOKEN = os.environ.get('VHSYS_SECRET_TOKEN', 'd7uCnP9cJSZ8PrjQ5xifLYp9Ig2Hiu')
 
 
-def criar_tabela_pedidos():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numero_nota TEXT UNIQUE NOT NULL,
-        nome_cliente TEXT,
-        vendedor TEXT,
-        modo TEXT,
-        status TEXT DEFAULT 'estoque',
-        motorista TEXT,
-        veiculo TEXT,
-        horario_saida TEXT,
-        horario_entrega TEXT,
-        horario_chegada TEXT,
-        criado_em TEXT,
-        atualizado_em TEXT
-    )''')
-    conn.commit()
-    conn.close()
-
-# Chame logo após criar o app (ou no início do código):
-criar_tabela_pedidos()  
+   def criar_tabela_pedidos():
+       conn = sqlite3.connect(DB_PATH)
+       conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           numero_nota TEXT UNIQUE NOT NULL,
+           nome_cliente TEXT,
+           vendedor TEXT,
+           modo TEXT,
+           status TEXT DEFAULT 'estoque',
+           motorista TEXT,
+           veiculo TEXT,
+           horario_saida TEXT,
+           horario_entrega TEXT,
+           horario_chegada TEXT,
+           criado_em TEXT,
+           atualizado_em TEXT
+       )''')
+       conn.commit()
+       conn.close()
+   criar_tabela_pedidos()   # chame no início do app  
 
 
 def consultar_pedido_vhsys(id_ped):
@@ -1709,12 +1707,11 @@ def buscar_pedido_por_numero(numero):
                 for p in pedidos:
                     # Testa os campos que podem conter o número digitado
                     candidatos = [
-                        str(p.get('id_pedido', '')),   # número de exibição (40680)
-                        str(p.get('id_ped', '')),      # ID interno
+                        str(p.get('id_pedido', '')),
+                        str(p.get('id_ped', '')),
                         str(p.get('referencia_pedido', '')),
                     ]
                     if numero in candidatos:
-                        # Encontrou! Verifica se é GP ou REAL MAIS
                         if p.get('venda_balcao'):
                             return {'tipo': 'gp', 'id_ped': p.get('id_ped')}
                         return {
@@ -1726,6 +1723,12 @@ def buscar_pedido_por_numero(numero):
                             'status_vhsys': p.get('status_pedido', ''),
                         }
         return None
+    except Exception as e:
+        print(f"[ERRO VHSYS LISTAGEM] {e}", flush=True)
+        return None
+
+
+    
     except Exception as e:
         print(f"[ERRO VHSYS LISTAGEM] {e}", flush=True)
         return None
