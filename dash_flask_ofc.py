@@ -1626,7 +1626,7 @@ def acompanhar():
     if nota:
         info = buscar_pedido_local(nota)
         if info is None:
-            v = buscar_pedido_por_numero(nota)
+            v = consultar_pedido_vhsys(nota)
             if v and v.get('tipo') == 'real_mais':
                 info = {
                     'status': 'estoque',
@@ -1810,7 +1810,7 @@ def logistica():
     if nota:
         pedido = buscar_pedido_local(nota)
         if pedido is None:
-            v = buscar_pedido_por_numero(nota)
+            v = consultar_pedido_vhsys(nota)
             if v and v.get('tipo') == 'real_mais':
                 pedido = {'numero_nota': nota, 'nome_cliente': v['nome_cliente'], 'vendedor': v['vendedor'], 'modo': '', 'status': 'estoque'}
                 salvar_pedido_local(nota, v['nome_cliente'], v['vendedor'])
