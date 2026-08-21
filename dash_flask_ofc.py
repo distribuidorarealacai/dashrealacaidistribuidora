@@ -43,8 +43,8 @@ def criar_tabela_pedidos():
             horario_chegada TEXT,
             criado_em TEXT,
             atualizado_em TEXT)''')
-        conn.commit()
-        conn.close()
+            conn.commit()
+            conn.close()
 criar_tabela_pedidos()   # chame no início do app 
 
 
