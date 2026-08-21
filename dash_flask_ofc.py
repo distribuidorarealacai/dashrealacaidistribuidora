@@ -27,7 +27,6 @@ VHSYS_ACCESS_TOKEN = os.environ.get('VHSYS_ACCESS_TOKEN', 'afYgGNDHGUUfOTJAHfDMG
 VHSYS_SECRET_TOKEN = os.environ.get('VHSYS_SECRET_TOKEN', 'd7uCnP9cJSZ8PrjQ5xifLYp9Ig2Hiu')
 
 def consultar_pedido_vhsys(id_ped):
-    """Consulta o pedido no Vhsys pelo id_ped."""
     url = f"{VHSYS_BASE}/pedidos/{id_ped}"
     headers = {
         'access-token': VHSYS_ACCESS_TOKEN,
@@ -38,12 +37,14 @@ def consultar_pedido_vhsys(id_ped):
     }
     try:
         res = requests.get(url, headers=headers, timeout=15)
+        # 🔍 LOG DE DEPURAÇÃO - veja o que a API retorna
+        print(f"[VHSYS DEBUG] URL={url}", flush=True)
+        print(f"[VHSYS DEBUG] status_code={res.status_code}", flush=True)
+        print(f"[VHSYS DEBUG] resposta={res.text[:2000]}", flush=True)
         if res.status_code == 200:
             data = res.json()
             if data.get('status') == 'success':
                 p = data['data']
-                # REGRA: pedido da REAL MAIS tem id_ped.
-                # Pedidos da GP usam venda_balcao (não entram no fluxo).
                 if p.get('venda_balcao'):
                     return {'tipo': 'gp', 'id_ped': id_ped}
                 return {
@@ -57,7 +58,6 @@ def consultar_pedido_vhsys(id_ped):
     except Exception as e:
         print(f"[ERRO VHSYS] {e}", flush=True)
         return None
-
 
 
 def login_necessario(f):
