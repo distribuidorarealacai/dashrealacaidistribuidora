@@ -27,7 +27,7 @@ VHSYS_ACCESS_TOKEN = os.environ.get('VHSYS_ACCESS_TOKEN', 'afYgGNDHGUUfOTJAHfDMG
 VHSYS_SECRET_TOKEN = os.environ.get('VHSYS_SECRET_TOKEN', 'd7uCnP9cJSZ8PrjQ5xifLYp9Ig2Hiu')
 
 
-   def criar_tabela_pedidos():
+def criar_tabela_pedidos():
        conn = sqlite3.connect(DB_PATH)
        conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
