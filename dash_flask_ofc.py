@@ -1868,6 +1868,57 @@ button:hover{{background:#1d4ed8}}
 <a class="back" href="/acompanhar">← Voltar ao acompanhamento</a>
 </div></body></html>'''
 
+@app.route('/logistica/modo', methods=['POST'])
+def logistica_modo():
+    nota = request.form.get('nota', '').strip()
+    modo = request.form.get('modo', '').strip()  # 'entrega' ou 'retirada'
+    if nota and modo:
+        # Salva o modo no banco de dados local
+        # Exemplo (ajuste para o seu banco):
+        # UPDATE pedidos SET modo = %s WHERE numero_nota = %s
+        salvar_modo_pedido(nota, modo)  # ← sua função de banco
+    return redirect(f'/logistica?nota={nota}')
+
+@app.route('/logistica/status', methods=['POST'])
+def logistica_status():
+    nota = request.form.get('nota', '').strip()
+    status = request.form.get('status', '').strip()  # 'pronto_retirada', etc.
+    if nota and status:
+        # Salva o status no banco de dados local
+        salvar_status_pedido(nota, status)  # ← sua função de banco
+    return redirect(f'/logistica?nota={nota}')
+
+# Rota para salvar o modo (entrega/retirada)
+@app.route('/logistica/modo', methods=['POST'])
+def logistica_modo():
+    nota = request.form.get('nota', '').strip()
+    modo = request.form.get('modo', '').strip()  # 'entrega' ou 'retirada'
+    if nota and modo:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE pedidos SET modo = ?, atualizado_em = datetime('now') WHERE numero_nota = ?",
+            (modo, nota)
+        )
+        conn.commit()
+        conn.close()
+    return redirect(f'/logistica?nota={nota}')
+
+# Rota para salvar o status (pronto_retirada, saiu_entrega, entregue)
+@app.route('/logistica/status', methods=['POST'])
+def logistica_status():
+    nota = request.form.get('nota', '').strip()
+    status = request.form.get('status', '').strip()
+    if nota and status:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE pedidos SET status = ?, atualizado_em = datetime('now') WHERE numero_nota = ?",
+            (status, nota)
+        )
+        conn.commit()
+        conn.close()
+    return redirect(f'/logistica?nota={nota}')
+
+
 
 def logistica_painel_html(u, nota, pedido):
     # Formulário de busca da nota
