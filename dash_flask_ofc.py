@@ -1874,16 +1874,22 @@ def logistica():
                 salvar_pedido_local(nota, v['nome_cliente'], v['vendedor'])
             elif v and v.get('tipo') == 'gp':
                 pedido = {'numero_nota': nota, 'nome_cliente': '', 'vendedor': '', 'modo': '', 'status': 'gp'}
+
+    # ===== TABELA DE ROTAS DO DIA (todas as notas reconhecidas) =====
+    rotas = db.execute(
+        "SELECT * FROM pedidos ORDER BY id DESC"
+    ).fetchall()
     db.close()
 
-    return Response(logistica_painel_html(u, nota, pedido, motoristas, veiculos), mimetype='text/html')
+    return Response(logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas), mimetype='text/html')
 
-
-def salvar_pedido_local(numero_nota, nome_cliente, vendedor):
-    """Cria o pedido no banco se ainda não existir."""
+def salvar_pedido_local(pedido):
     conn = sqlite3.connect(DB_PATH)
-    conn.execute('''INSERT OR IGNORE INTO pedidos (numero_nota, nome_cliente, vendedor, status)
-                    VALUES (?, ?, ?, 'estoque')''', (str(numero_nota), nome_cliente, vendedor))
+    conn.execute(
+        """INSERT OR IGNORE INTO pedidos (numero_nota, nome_cliente, vendedor, status, criado_em)
+           VALUES (?, ?, ?, 'estoque', datetime('now'))""",
+        (pedido['numero_nota'], pedido.get('nome_cliente', ''), pedido.get('vendedor', ''))
+    )
     conn.commit()
     conn.close()
 
@@ -1975,7 +1981,7 @@ def logistica_status():
 
 
 
-def logistica_painel_html(u, nota, pedido, motoristas, veiculos):
+def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
     # ===== Dropdowns a partir dos cadastros do admin =====
     opcoes_motorista = '<option value="">Selecione o motorista</option>'
     for m in motoristas:
@@ -1988,20 +1994,20 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos):
         sel = ' selected' if pedido and pedido.get('veiculo') == v['placa'] else ''
         opcoes_veiculo += f'<option value="{v["placa"]}"{sel}>{rotulo}</option>'
 
-    # Formulário de busca da nota
+    # ===== Formulário de busca da nota =====
     busca = f'''
     <form method="GET" action="/logistica" style="display:flex;gap:8px;margin-bottom:16px">
       <input type="text" name="nota" placeholder="Digite o número da nota" value="{nota}" style="flex:1;padding:12px;border:2px solid #e5e7eb;border-radius:8px" required>
       <button type="submit" style="padding:12px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Reconhecer</button>
     </form>'''
 
+    # ===== Corpo do reconhecimento =====
     corpo = ''
     if nota and pedido is None:
         corpo = '<div style="background:#fee2e2;color:#b91c1c;padding:14px;border-radius:8px;text-align:center">Nota não encontrada no Vhsys.</div>'
     elif pedido and pedido.get('status') == 'gp':
         corpo = '<div style="background:#f3f4f6;color:#374151;padding:14px;border-radius:8px;text-align:center">Este pedido é de loja física (GP) — sem entrega/retirada.</div>'
     elif pedido:
-        # Passo 1: mostrar nome do cliente + escolher modo
         modo_atual = pedido.get('modo', '')
         corpo = f'''
         <div style="background:#eff6ff;padding:16px;border-radius:8px;margin-bottom:16px">
@@ -2011,17 +2017,17 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos):
 
         # Se ainda não escolheu o modo, mostra a escolha
         if not modo_atual:
-            corpo += '''
+            corpo += f'''
             <div style="margin-bottom:16px">
               <div style="font-weight:600;margin-bottom:8px">Este pedido é para:</div>
               <div style="display:flex;gap:8px">
                 <form method="POST" action="/logistica/modo" style="flex:1">
-                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
                   <input type="hidden" name="modo" value="entrega">
                   <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🚚 Entrega</button>
                 </form>
                 <form method="POST" action="/logistica/modo" style="flex:1">
-                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
                   <input type="hidden" name="modo" value="retirada">
                   <button type="submit" style="width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🏬 Retirada</button>
                 </form>
@@ -2032,9 +2038,9 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos):
 
             # RETIRADA: botão "Pronto para retirada"
             if modo_atual == 'retirada':
-                corpo += '''
+                corpo += f'''
                 <form method="POST" action="/logistica/status" style="margin-bottom:16px">
-                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
                   <input type="hidden" name="status" value="pronto_retirada">
                   <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
                 </form>'''
@@ -2054,6 +2060,60 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos):
                   <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🚚 O Pedido Saiu para Entrega</button>
                 </form>'''
 
+    # ===== TABELA DE ROTAS DO DIA =====
+    linhas = ''
+    for r in rotas:
+        status_badge = {
+            'estoque': '<span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:6px;font-size:12px">📦 Em estoque</span>',
+            'saiu_entrega': '<span style="background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:6px;font-size:12px">🚚 Em trânsito</span>',
+            'entregue': '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px">✅ Entregue</span>',
+            'finalizado': '<span style="background:#ddd6fe;color:#5b21b6;padding:4px 10px;border-radius:6px;font-size:12px">🎉 Finalizado</span>',
+            'gp': '<span style="background:#f3f4f6;color:#374151;padding:4px 10px;border-radius:6px;font-size:12px">🏪 Loja</span>',
+        }.get(r['status'], r['status'])
+
+        # Campo de chegada (só aparece quando status = 'entregue')
+        campo_chegada = ''
+        if r['status'] == 'entregue':
+            campo_chegada = f'''
+            <form method="POST" action="/logistica/chegada" style="display:flex;gap:4px">
+              <input type="hidden" name="nota" value="{r["numero_nota"]}">
+              <input type="time" name="horario" required style="padding:4px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">
+              <button type="submit" style="padding:4px 8px;background:#7c3aed;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer">🏁</button>
+            </form>'''
+
+        linhas += f'''
+        <tr>
+          <td>{r["numero_nota"]}</td>
+          <td>{r.get("nome_cliente", "")}</td>
+          <td>{status_badge}</td>
+          <td>{r.get("motorista", "-")}</td>
+          <td>{r.get("horario_saida", "-")}</td>
+          <td>{r.get("horario_entrega", "-")}</td>
+          <td>{r.get("horario_chegada", "-")}</td>
+          <td>{campo_chegada}</td>
+        </tr>'''
+
+    tabela_rotas = f'''
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-top:24px">
+      <h3 style="color:#1f2937;margin-top:0">📋 Rotas do Dia</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead>
+          <tr style="background:#f3f4f6">
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Nota</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Cliente</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Status</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Motorista</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Saída</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Entrega</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Chegada</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Ação</th>
+          </tr>
+        </thead>
+        <tbody>{linhas}</tbody>
+      </table>
+    </div>'''
+
+    # ===== HTML FINAL (usa {tabela_rotas} dentro do card) =====
     return f'''<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel Logística</title><style>
@@ -2070,7 +2130,9 @@ a{{color:#bfdbfe;text-decoration:none;font-size:14px}}
 <h1>📦 Reconhecer Pedido</h1>
 {busca}
 {corpo}
-</div></body></html>'''
+</div>
+{tabela_rotas}
+</body></html>'''
 
 @app.route('/api/metas', methods=['GET', 'POST'])
 def api_metas():
