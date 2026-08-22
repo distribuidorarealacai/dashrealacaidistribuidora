@@ -1068,7 +1068,7 @@ def motorista_login():
     <button>Entrar</button></form>
     <a href="/">← Voltar ao site</a></div></body></html>'''
 
-@app.route('/motorista/painel')
+@app.route('/motorista/painel', methods=['GET', 'POST'])
 def motorista_painel():
     if 'motorista_id' not in session:
         return redirect('/motorista/login')
@@ -1676,6 +1676,7 @@ def acompanhar():
     nota = request.args.get('nota', '').strip()
     info = None
     if nota:
+        # Busca pelo NÚMERO DA NOTA (declarado na página /logistica)
         info = buscar_pedido_local(nota)
         if info is None:
             v = consultar_pedido_vhsys(nota)
