@@ -2030,7 +2030,7 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
           <div style="font-size:16px;color:#1e40af;font-weight:700;margin-top:4px">Cliente: {pedido.get("nome_cliente", "")}</div>
         </div>'''
 
-            # RETIRADA: botão "Pronto para retirada"
+                        # RETIRADA: botão "Pronto para retirada"
             if modo_atual == 'retirada':
                 corpo += f'''
                 <form method="POST" action="/logistica/status" style="margin-bottom:16px">
