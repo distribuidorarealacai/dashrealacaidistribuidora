@@ -1777,6 +1777,14 @@ def acompanhar_page_html(nota, info):
                 <div style="margin-top:6px;color:#6b7280">Em caso de dúvidas, entre em contato.</div>
                 <div style="margin-top:10px;font-size:14px;color:#374151">Vendedora: <b>{info.get("vendedor", "")}</b></div>
             </div>'''
+        elif info['status'] == 'retirado':
+            resultado = f'''
+            <div style="background:#ddd6fe;color:#5b21b6;padding:20px;border-radius:8px;margin-top:16px;text-align:center">
+                <div style="font-size:18px;font-weight:700;margin-bottom:8px">🎯 Pedido Retirado!</div>
+                <div>Cliente: <b>{info.get("nome_cliente", "")}</b></div>
+                <div style="margin-top:6px;color:#6b7280">Seu pedido foi retirado.</div>
+                <div style="margin-top:10px;font-size:14px;color:#374151">Retirado às: <b>{info.get("horario_retirada", "")}</b></div>
+            </div>'''
 
     return f'''<!DOCTYPE html>
 <html lang="pt-BR">
@@ -2037,12 +2045,23 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
             corpo += f'<div style="background:#d1fae5;color:#065f46;padding:10px;border-radius:8px;margin-bottom:16px;text-align:center">Modo: <b>{"Entrega" if modo_atual == "entrega" else "Retirada"}</b></div>'
 
             # RETIRADA: botão "Pronto para retirada"
+                        # RETIRADA: botão "Pronto para retirada"
             if modo_atual == 'retirada':
                 corpo += f'''
                 <form method="POST" action="/logistica/status" style="margin-bottom:16px">
-                  <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
-                  <input type="hidden" name="status" value="pronto_retirada">
-                  <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
+                <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
+                <input type="hidden" name="status" value="pronto_retirada">
+                <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
+                </form>'''
+
+                # Se já está pronto para retirada, permite registrar o horário da retirada
+            if pedido.get('status') == 'pronto_retirada':
+                corpo += f'''
+                <form method="POST" action="/logistica/retirada" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
+                <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
+                <label>Horário da retirada</label>
+                <input type="time" name="horario" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                <button type="submit" style="width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🎯 Registrar Retirada</button>
                 </form>'''
 
             # ENTREGA: fluxo de motorista e horários (dropdowns)
@@ -2067,6 +2086,8 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
             'estoque': '<span style="background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:6px;font-size:12px">📦 Em estoque</span>',
             'saiu_entrega': '<span style="background:#dbeafe;color:#1e40af;padding:4px 10px;border-radius:6px;font-size:12px">🚚 Em trânsito</span>',
             'entregue': '<span style="background:#d1fae5;color:#065f46;padding:4px 10px;border-radius:6px;font-size:12px">✅ Entregue</span>',
+            'pronto_retirada': '<span style="background:#fef9c3;color:#854d0e;padding:4px 10px;border-radius:6px;font-size:12px">🏬 Pronto p/ retirada</span>',
+            'retirado': '<span style="background:#ddd6fe;color:#5b21b6;padding:4px 10px;border-radius:6px;font-size:12px">🎯 Retirado</span>',
             'finalizado': '<span style="background:#ddd6fe;color:#5b21b6;padding:4px 10px;border-radius:6px;font-size:12px">🎉 Finalizado</span>',
             'gp': '<span style="background:#f3f4f6;color:#374151;padding:4px 10px;border-radius:6px;font-size:12px">🏪 Loja</span>',
         }.get(r['status'], r['status'])
@@ -2083,34 +2104,38 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
 
         linhas += f'''
         <tr>
-          <td>{r["numero_nota"]}</td>
-          <td>{r["nome_cliente"]}</td>
-          <td>{status_badge}</td>
-          <td>{r["motorista"] if r["motorista"] else "-"}</td>
-          <td>{r["horario_saida"] if r["horario_saida"] else "-"}</td>
-          <td>{r["horario_entrega"] if r["horario_entrega"] else "-"}</td>
-          <td>{r["horario_chegada"] if r["horario_chegada"] else "-"}</td>
-          <td>{campo_chegada}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;word-break:break-word">{r["numero_nota"]}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;word-break:break-word;overflow-wrap:break-word">{r["nome_cliente"]}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{status_badge}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["motorista"] if r["motorista"] else "-"}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_saida"] if r["horario_saida"] else "-"}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_entrega"] if r["horario_entrega"] else "-"}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_retirada"] if r["horario_retirada"] else "-"}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_chegada"] if r["horario_chegada"] else "-"}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{campo_chegada}</td>
         </tr>'''
     tabela_rotas = f'''
-    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-top:24px">
-      <h3 style="color:#1f2937;margin-top:0">📋 Rotas do Dia</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <thead>
-          <tr style="background:#f3f4f6">
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Nota</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Cliente</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Status</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Motorista</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Saída</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Entrega</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Chegada</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb">Ação</th>
-          </tr>
-        </thead>
-        <tbody>{linhas}</tbody>
-      </table>
-    </div>'''
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-top:24px">
+  <h3 style="color:#1f2937;margin-top:0">📋 Rotas do Dia</h3>
+  <div style="overflow-x:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed">
+    <thead>
+      <tr style="background:#f3f4f6">
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:10%">Nota</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:28%">Cliente</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Status</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Motorista</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Saída</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Entrega</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Chegada</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Retirada</th>
+        <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:11%">Ação</th>
+      </tr>
+    </thead>
+    <tbody>{linhas}</tbody>
+  </table>
+  </div>
+</div>'''
 
     # ===== HTML FINAL (usa {tabela_rotas} dentro do card) =====
     return f'''<!DOCTYPE html>
@@ -2409,3 +2434,18 @@ def salvar_pedido_local(numero_nota, nome_cliente, vendedor):
     )
     conn.commit()
     conn.close()
+
+@app.route('/logistica/retirada', methods=['POST'])
+def logistica_retirada():
+    nota = request.form.get('nota', '').strip()
+    horario = request.form.get('horario', '').strip()
+    if nota and horario:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            """UPDATE pedidos SET horario_retirada = ?, status = 'retirado',
+               atualizado_em = datetime('now') WHERE numero_nota = ?""",
+            (horario, nota)
+        )
+        conn.commit()
+        conn.close()
+    return redirect(f'/logistica?nota={nota}')
