@@ -860,6 +860,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;b
 <div class="cg"><div class="cc"><div class="ct">Entregas por Entregador</div><div class="cw"><canvas id="cE"></canvas></div></div><div class="cc"><div class="ct">Entregas por Dia</div><div class="cw"><canvas id="cED"></canvas></div></div></div>
 <div class="tc2"><div class="ct">Detalhamento de Entregas</div><table><thead><tr><th>Entregador</th><th>Total</th><th>%</th></tr></thead><tbody id="tbE"></tbody></table></div>
 <a href="/logistica_abastecimentos" style="display:inline-block; background:#7c3aed; color:#fff; padding:10px 18px; border-radius:8px; text-decoration:none; font-weight:600; margin:10px 0;">📊 Relatório de Abastecimentos</a>
+<a href="/logistica/relatorio" style="display:inline-block;margin-bottom:16px;padding:12px 20px;background:#059669;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">📄 Relatório de Entregas</a>
 </div>
 <div id="tc-con" class="tc">
 <div class="kg" id="kpiC"></div>
@@ -1805,6 +1806,11 @@ def logistica():
     if u.get('setor') != 'logistica' and u.get('role') != 'admin_master':
         return 'Acesso negado', 403
 
+    # ===== BUSCA OS CADASTROS DO ADMIN (dropdowns) =====
+    db = get_db()
+    motoristas = db.execute('SELECT id, nome FROM motoristas ORDER BY nome').fetchall()
+    veiculos = db.execute('SELECT id, placa, descricao FROM veiculos ORDER BY placa').fetchall()
+
     nota = request.args.get('nota', '').strip()
     pedido = None
     if nota:
@@ -1816,7 +1822,10 @@ def logistica():
                 salvar_pedido_local(nota, v['nome_cliente'], v['vendedor'])
             elif v and v.get('tipo') == 'gp':
                 pedido = {'numero_nota': nota, 'nome_cliente': '', 'vendedor': '', 'modo': '', 'status': 'gp'}
-    return Response(logistica_painel_html(u, nota, pedido), mimetype='text/html')
+    db.close()
+
+    return Response(logistica_painel_html(u, nota, pedido, motoristas, veiculos), mimetype='text/html')
+
 
 def salvar_pedido_local(numero_nota, nome_cliente, vendedor):
     """Cria o pedido no banco se ainda não existir."""
@@ -1901,7 +1910,19 @@ def logistica_status():
 
 
 
-def logistica_painel_html(u, nota, pedido):
+def logistica_painel_html(u, nota, pedido, motoristas, veiculos):
+    # ===== Dropdowns a partir dos cadastros do admin =====
+    opcoes_motorista = '<option value="">Selecione o motorista</option>'
+    for m in motoristas:
+        sel = ' selected' if pedido and pedido.get('motorista') == m['nome'] else ''
+        opcoes_motorista += f'<option value="{m["nome"]}"{sel}>{m["nome"]}</option>'
+
+    opcoes_veiculo = '<option value="">Selecione o veículo</option>'
+    for v in veiculos:
+        rotulo = v['placa'] + (f' - {v["descricao"]}' if v['descricao'] else '')
+        sel = ' selected' if pedido and pedido.get('veiculo') == v['placa'] else ''
+        opcoes_veiculo += f'<option value="{v["placa"]}"{sel}>{rotulo}</option>'
+
     # Formulário de busca da nota
     busca = f'''
     <form method="GET" action="/logistica" style="display:flex;gap:8px;margin-bottom:16px">
@@ -1953,18 +1974,18 @@ def logistica_painel_html(u, nota, pedido):
                   <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
                 </form>'''
 
-            # ENTREGA: fluxo de motorista e horários
+            # ENTREGA: fluxo de motorista e horários (dropdowns)
             else:
-                corpo += '''
+                corpo += f'''
                 <form method="POST" action="/logistica/status" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
-                  <input type="hidden" name="nota" value="''' + pedido["numero_nota"] + '''">
+                  <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
                   <input type="hidden" name="status" value="saiu_entrega">
                   <label>Motorista</label>
-                  <input type="text" name="motorista" placeholder="Nome do motorista" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                  <select name="motorista" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">{opcoes_motorista}</select>
                   <label>Veículo</label>
-                  <input type="text" name="veiculo" placeholder="Veículo utilizado" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                  <select name="veiculo" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">{opcoes_veiculo}</select>
                   <label>Horário de saída</label>
-                  <input type="time" name="horario_saida" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+                  <input type="time" name="horario_saida" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
                   <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🚚 O Pedido Saiu para Entrega</button>
                 </form>'''
 
@@ -2064,3 +2085,155 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port)
 
 
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import mm
+from io import BytesIO
+from flask import send_file
+
+@app.route('/logistica/relatorio/pdf')
+def logistica_relatorio_pdf():
+    de = request.args.get('de', '').strip()
+    ate = request.args.get('ate', '').strip()
+    motorista = request.args.get('motorista', '').strip()
+    cliente = request.args.get('cliente', '').strip()
+
+    db = get_db()
+    query = """SELECT numero_nota, nome_cliente, motorista, veiculo,
+               horario_saida, horario_entrega, horario_chegada
+               FROM pedidos
+               WHERE horario_saida IS NOT NULL AND horario_saida != ''
+               AND date(atualizado_em) BETWEEN ? AND ?"""
+    params = [de, ate]
+    if motorista:
+        query += " AND motorista = ?"
+        params.append(motorista)
+    if cliente:
+        query += " AND nome_cliente LIKE ?"
+        params.append(f'%{cliente}%')
+    query += " ORDER BY motorista, nome_cliente"
+    rows = db.execute(query, params).fetchall()
+    db.close()
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
+                            leftMargin=15*mm, rightMargin=15*mm,
+                            topMargin=15*mm, bottomMargin=15*mm)
+
+    styles = getSampleStyleSheet()
+    titulo = Paragraph(f"<b>Relatório de Entregas</b><br/>"
+                       f"<font size=10>Período: {de} a {ate}"
+                       f"{' | Motorista: ' + motorista if motorista else ''}"
+                       f"{' | Cliente: ' + cliente if cliente else ''}</font>",
+                       styles['Title'])
+
+    dados = [["Nota", "Cliente", "Motorista", "Veículo", "Saída", "Entrega", "Chegada"]]
+    for r in rows:
+        dados.append([r['numero_nota'], r['nome_cliente'], r['motorista'],
+                      r['veiculo'], r['horario_saida'], r['horario_entrega'],
+                      r['horario_chegada']])
+
+    tabela = Table(dados, colWidths=[50, 130, 90, 70, 55, 55, 55])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1e40af')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 10),
+        ('FONTSIZE', (0,1), (-1,-1), 9),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#d1d5db')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#f3f4f6')]),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+
+    doc.build([titulo, Spacer(1, 8), tabela])
+    buf.seek(0)
+    return send_file(buf, mimetype='application/pdf',
+                     as_attachment=True,
+                     download_name=f'relatorio_entregas_{de}_a_{ate}.pdf')
+
+@app.route('/logistica/relatorio')
+def logistica_relatorio():
+    de = request.args.get('de', '').strip()
+    ate = request.args.get('ate', '').strip()
+    motorista = request.args.get('motorista', '').strip()
+    cliente = request.args.get('cliente', '').strip()
+
+    # Lista de motoristas para o dropdown
+    db = get_db()
+    motoristas = [r['nome'] for r in db.execute('SELECT DISTINCT nome FROM motoristas ORDER BY nome').fetchall()]
+
+    rows = []
+    if de and ate:
+        query = """SELECT numero_nota, nome_cliente, motorista, veiculo,
+                   horario_saida, horario_entrega, horario_chegada
+                   FROM pedidos
+                   WHERE horario_saida IS NOT NULL AND horario_saida != ''
+                   AND date(atualizado_em) BETWEEN ? AND ?"""
+        params = [de, ate]
+        if motorista:
+            query += " AND motorista = ?"
+            params.append(motorista)
+        if cliente:
+            query += " AND nome_cliente LIKE ?"
+            params.append(f'%{cliente}%')
+        query += " ORDER BY motorista, nome_cliente"
+        rows = db.execute(query, params).fetchall()
+    db.close()
+
+    # Monta a tabela HTML
+    linhas = ''
+    for r in rows:
+        linhas += f'''<tr>
+            <td>{r['numero_nota']}</td>
+            <td>{r['nome_cliente']}</td>
+            <td>{r['motorista']}</td>
+            <td>{r['veiculo']}</td>
+            <td>{r['horario_saida']}</td>
+            <td>{r['horario_entrega']}</td>
+            <td>{r['horario_chegada']}</td>
+        </tr>'''
+
+    opcoes_motorista = ''.join(f'<option value="{m}">{m}</option>' for m in motoristas)
+
+    html = f'''<!DOCTYPE html><html><head><title>Relatório de Entregas</title>
+    <style>
+    body{{font-family:Arial;background:#f3f4f6;margin:0;padding:20px;}}
+    .card{{background:#fff;border-radius:12px;padding:24px;max-width:1100px;margin:auto;box-shadow:0 2px 8px rgba(0,0,0,.1);}}
+    h1{{color:#1e40af;margin-top:0;}}
+    .filtros{{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:end;}}
+    .filtros input,.filtros select{{padding:10px;border:2px solid #e5e7eb;border-radius:8px;}}
+    .filtros button{{padding:10px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;}}
+    table{{width:100%;border-collapse:collapse;margin-top:10px;}}
+    th,td{{border:1px solid #e5e7eb;padding:10px;text-align:left;font-size:14px;}}
+    th{{background:#1e40af;color:#fff;}}
+    tr:nth-child(even){{background:#f9fafb;}}
+    .btn-pdf{{display:inline-block;background:#059669;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:15px;}}
+    </style></head><body>
+    <div class="card">
+    <h1>📊 Relatório de Entregas</h1>
+    <form method="GET" class="filtros">
+      <div><label>De:</label><br><input type="date" name="de" value="{de}"></div>
+      <div><label>Até:</label><br><input type="date" name="ate" value="{ate}"></div>
+      <div><label>Motorista:</label><br>
+        <select name="motorista">
+          <option value="">Todos</option>
+          {opcoes_motorista}
+        </select>
+      </div>
+      <div><label>Cliente:</label><br><input type="text" name="cliente" value="{cliente}" placeholder="Nome do cliente"></div>
+      <button>Filtrar</button>
+    </form>
+    <table>
+      <thead><tr>
+        <th>Nota</th><th>Cliente</th><th>Motorista</th><th>Veículo</th>
+        <th>Saída</th><th>Entrega</th><th>Chegada</th>
+      </tr></thead>
+      <tbody>{linhas}</tbody>
+    </table>
+    <a class="btn-pdf" href="/logistica/relatorio/pdf?de={de}&ate={ate}&motorista={motorista}&cliente={cliente}">📄 Gerar PDF</a>
+    </div></body></html>'''
+    return html
