@@ -2400,3 +2400,13 @@ def logistica_chegada():
         conn.commit()
         conn.close()
     return redirect(f'/logistica?nota={nota}')
+
+def salvar_pedido_local(numero_nota, nome_cliente, vendedor):
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        """INSERT OR IGNORE INTO pedidos (numero_nota, nome_cliente, vendedor, status, criado_em)
+           VALUES (?, ?, ?, 'estoque', datetime('now'))""",
+        (numero_nota, nome_cliente, vendedor)
+    )
+    conn.commit()
+    conn.close()
