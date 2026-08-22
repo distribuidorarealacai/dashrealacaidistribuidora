@@ -1068,6 +1068,7 @@ def motorista_login():
     <button>Entrar</button></form>
     <a href="/">← Voltar ao site</a></div></body></html>'''
 
+@app.route('/motorista/painel')
 def motorista_painel():
     if 'motorista_id' not in session:
         return redirect('/motorista/login')
