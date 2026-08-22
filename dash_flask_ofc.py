@@ -1068,7 +1068,6 @@ def motorista_login():
     <button>Entrar</button></form>
     <a href="/">← Voltar ao site</a></div></body></html>'''
 
-@app.route('/motorista/painel', methods=['GET', 'POST'])
 def motorista_painel():
     if 'motorista_id' not in session:
         return redirect('/motorista/login')
@@ -1076,7 +1075,20 @@ def motorista_painel():
     m = db.execute('SELECT * FROM motoristas WHERE id = ?', (session['motorista_id'],)).fetchone()
     veiculos = db.execute('SELECT * FROM veiculos ORDER BY placa').fetchall()
 
-    # Salvar novo abastecimento
+    # ===== POST: registrar horário de entrega =====
+    if request.method == 'POST' and request.form.get('acao') == 'entrega':
+        nota = request.form.get('nota', '').strip()
+        horario = request.form.get('horario', '').strip()
+        if nota and horario:
+            db.execute(
+                """UPDATE pedidos SET horario_entrega = ?, status = 'entregue',
+                   atualizado_em = datetime('now') WHERE numero_nota = ?""",
+                (horario, nota)
+            )
+            db.commit()
+        return redirect('/motorista/painel')
+
+    # ===== POST: salvar novo abastecimento =====
     if request.method == 'POST':
         veiculo_id = request.form['veiculo_id']
         litros = request.form['litros']
@@ -1088,51 +1100,89 @@ def motorista_painel():
         db.commit()
         return redirect('/motorista/painel')
 
+    # ===== Entregas do dia (pedidos em trânsito deste motorista) =====
+    pedidos = db.execute(
+        """SELECT * FROM pedidos
+           WHERE motorista = ? AND status = 'saiu_entrega'
+           ORDER BY atualizado_em DESC""",
+        (m['nome'],)
+    ).fetchall()
+
+    # ===== Abastecimentos do motorista =====
     abastecimentos = db.execute('''SELECT a.*, v.placa, v.descricao FROM abastecimentos a
         LEFT JOIN veiculos v ON a.veiculo_id = v.id
         WHERE a.motorista_id = ? ORDER BY a.id DESC''', (m['id'],)).fetchall()
     resumo = db.execute('''SELECT COUNT(*) as qtd, COALESCE(SUM(litros),0) as total_litros,
         COALESCE(SUM(km),0) as total_km, COALESCE(SUM(valor),0) as total_valor
         FROM abastecimentos WHERE motorista_id = ?''', (m['id'],)).fetchone()
-    db.close()
-    return f'''<!DOCTYPE html><html><head><title>Painel do Motorista</title>
-    <style>
-    body{{font-family:Arial;background:#12061f;color:#fff;padding:30px;}}
-    h1{{color:#c084fc;}}h2{{color:#a78bfa;}}
-    .cards{{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0;}}
-    .kpi{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;flex:1;min-width:150px;text-align:center;}}
-    .kpi .num{{font-size:26px;font-weight:800;color:#c084fc;}}
-    .form-abastecimento{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;margin:20px 0;}}
+
+    # ===== Monta o HTML =====
+    # Cards das entregas do dia
+    cards_entregas = ''
+    if not pedidos:
+        cards_entregas = '<div style="background:#f3f4f6;color:#374151;padding:16px;border-radius:8px;text-align:center">Nenhuma entrega pendente para hoje. 🎉</div>'
+    for p in pedidos:
+        cards_entregas += f'''
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px">
+          <div style="font-size:14px;color:#6b7280">Nota: <b>{p["numero_nota"]}</b></div>
+          <div style="font-size:16px;color:#1e40af;font-weight:700">Cliente: {p["nome_cliente"]}</div>
+          <div style="font-size:14px;color:#374151;margin-top:4px">Horário de saída: <b>{p["horario_saida"]}</b></div>
+          <form method="POST" action="/motorista/painel" style="margin-top:12px;display:flex;gap:8px">
+            <input type="hidden" name="acao" value="entrega">
+            <input type="hidden" name="nota" value="{p["numero_nota"]}">
+            <input type="time" name="horario" required style="flex:1;padding:10px;border:2px solid #e5e7eb;border-radius:8px">
+            <button type="submit" style="padding:10px 16px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Entreguei</button>
+          </form>
+        </div>'''
+
+    # Dropdown de veículos para o abastecimento
+    opcoes_veiculo = ''.join(f'<option value="{v["id"]}">{v["placa"]} - {v["descricao"]}</option>' for v in veiculos)
+
+    # Tabela de abastecimentos
+    linhas_abast = ''
+    for a in abastecimentos:
+        linhas_abast += f'''<tr>
+            <td>{a["data"]}</td><td>{a["placa"]}</td><td>{a["litros"]}</td>
+            <td>{a["km"]}</td><td>R$ {a["valor"]}</td>
+        </tr>'''
+
+    return f'''<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Painel Motorista</title><style>
+    body{{font-family:Arial;background:#12061f;color:#fff;padding:20px;}}
+    .topbar{{background:#7c3aed;color:#fff;padding:14px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}}
+    .card{{background:#221040;border:1px solid #3b1a6b;border-radius:12px;padding:20px;margin-bottom:20px;}}
+    h1,h2{{color:#c084fc;margin-top:0;}}
     input,select{{width:100%;padding:10px;margin:6px 0;border-radius:6px;border:1px solid #3b1a6b;background:#1a0b2e;color:#fff;}}
     button{{background:#7c3aed;color:#fff;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:700;}}
-    table{{width:100%;border-collapse:collapse;}}
-    th,td{{border:1px solid #3b1a6b;padding:10px;text-align:left;}}
+    table{{width:100%;border-collapse:collapse;margin-top:10px;}}
+    th,td{{border:1px solid #3b1a6b;padding:10px;text-align:left;font-size:14px;}}
     th{{background:#2a1448;}}
-    a{{color:#c084fc;}}
+    a{{color:#c084fc;text-decoration:none;}}
+    .entrega-card{{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;color:#1f2937;}}
     </style></head><body>
-    <h1>🚚 Painel — {m["nome"]}</h1>
-    <a href="/motorista/logout">Sair</a>
-    <div class="form-abastecimento"><h2>⛽ Registrar Abastecimento</h2>
+    <div class="topbar"><b>🚚 Sou Motorista</b><span>Olá, {m["nome"]} · <a href="/motorista/logout">Sair</a></span></div>
+
+    <div class="card"><h2>📦 Entregas do Dia</h2>{cards_entregas}</div>
+
+    <div class="card"><h2>⛽ Cadastrar Abastecimento</h2>
     <form method="POST">
-    <select name="veiculo_id" required><option value="">Selecione o veículo</option>
-    {"".join(f'<option value="{v["id"]}">{v["placa"]} - {v["descricao"]}</option>' for v in veiculos)}
-    </select>
-    <input name="litros" type="number" step="0.01" placeholder="Litros abastecidos" required>
-    <input name="km" type="number" placeholder="Km no momento do abastecimento" required>
-    <input name="valor" type="number" step="0.01" placeholder="Valor abastecido (R$)" required>
-    <input name="data" type="date">
-    <button>Salvar Abastecimento</button></form></div>
-    <div class="cards">
-    <div class="kpi"><div class="num">{resumo["qtd"]}</div>Abastecimentos</div>
-    <div class="kpi"><div class="num">R$ {resumo["total_valor"]:.2f}</div>Valor Total</div>
-    <div class="kpi"><div class="num">{resumo["total_litros"]:.2f} L</div>Total Litros</div>
-    <div class="kpi"><div class="num">{resumo["total_km"]:.0f} km</div>Total Km</div>
-    </div>
-    <h2>Meus Abastecimentos</h2>
-    <table><tr><th>Data</th><th>Veículo</th><th>Litros</th><th>Km</th><th>Valor</th></tr>
-    {"".join(f'<tr><td>{a["data"] or "-"}</td><td>{a["placa"]} - {a["descricao"]}</td><td>{a["litros"]}</td><td>{a["km"]}</td><td>R$ {a["valor"]:.2f}</td></tr>' for a in abastecimentos) if abastecimentos else '<tr><td colspan="5">Nenhum abastecimento registrado ainda.</td></tr>'}
-    </table>
+      <select name="veiculo_id" required>{opcoes_veiculo}</select>
+      <input type="date" name="data" required>
+      <input type="number" step="0.01" name="litros" placeholder="Litros" required>
+      <input type="number" name="km" placeholder="Km" required>
+      <input type="number" step="0.01" name="valor" placeholder="Valor (R$)" required>
+      <button>Salvar Abastecimento</button>
+    </form></div>
+
+    <div class="card"><h2>📊 Resumo</h2>
+    <div>Abastecimentos: <b>{resumo["qtd"]}</b> | Litros: <b>{resumo["total_litros"]}</b> | Km: <b>{resumo["total_km"]}</b> | Total: <b>R$ {resumo["total_valor"]}</b></div>
+    <table><thead><tr><th>Data</th><th>Veículo</th><th>Litros</th><th>Km</th><th>Valor</th></tr></thead>
+    <tbody>{linhas_abast}</tbody></table></div>
     </body></html>'''
+
+
+
+
 
 @app.route('/motorista/logout')
 def motorista_logout():
@@ -2237,3 +2287,39 @@ def logistica_relatorio():
     <a class="btn-pdf" href="/logistica/relatorio/pdf?de={de}&ate={ate}&motorista={motorista}&cliente={cliente}">📄 Gerar PDF</a>
     </div></body></html>'''
     return html
+
+
+@app.route('/logistica/saida', methods=['POST'])
+def logistica_saida():
+    nota = request.form.get('nota', '').strip()
+    motorista = request.form.get('motorista', '').strip()
+    veiculo = request.form.get('veiculo', '').strip()
+    horario = request.form.get('horario', '').strip()
+    if nota and horario:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            """UPDATE pedidos SET motorista = ?, veiculo = ?, horario_saida = ?,
+               status = 'saiu_entrega', atualizado_em = datetime('now')
+               WHERE numero_nota = ?""",
+            (motorista, veiculo, horario, nota)
+        )
+        conn.commit()
+        conn.close()
+    return redirect(f'/logistica?nota={nota}')
+
+
+
+@app.route('/logistica/chegada', methods=['POST'])
+def logistica_chegada():
+    nota = request.form.get('nota', '').strip()
+    horario = request.form.get('horario', '').strip()
+    if nota and horario:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            """UPDATE pedidos SET horario_chegada = ?, status = 'finalizado',
+               atualizado_em = datetime('now') WHERE numero_nota = ?""",
+            (horario, nota)
+        )
+        conn.commit()
+        conn.close()
+    return redirect(f'/logistica?nota={nota}')
