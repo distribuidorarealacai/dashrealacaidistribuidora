@@ -2084,15 +2084,14 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         linhas += f'''
         <tr>
           <td>{r["numero_nota"]}</td>
-          <td>{r.get("nome_cliente", "")}</td>
+          <td>{r["nome_cliente"]}</td>
           <td>{status_badge}</td>
-          <td>{r.get("motorista", "-")}</td>
-          <td>{r.get("horario_saida", "-")}</td>
-          <td>{r.get("horario_entrega", "-")}</td>
-          <td>{r.get("horario_chegada", "-")}</td>
+          <td>{r["motorista"] if r["motorista"] else "-"}</td>
+          <td>{r["horario_saida"] if r["horario_saida"] else "-"}</td>
+          <td>{r["horario_entrega"] if r["horario_entrega"] else "-"}</td>
+          <td>{r["horario_chegada"] if r["horario_chegada"] else "-"}</td>
           <td>{campo_chegada}</td>
         </tr>'''
-
     tabela_rotas = f'''
     <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-top:24px">
       <h3 style="color:#1f2937;margin-top:0">📋 Rotas do Dia</h3>
