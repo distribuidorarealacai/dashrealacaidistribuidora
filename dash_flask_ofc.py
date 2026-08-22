@@ -2031,38 +2031,38 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         </div>'''
 
     # ===== SE O MODO AINDA NÃO FOI DEFINIDO, PERGUNTA =====
-    if not modo_atual:
-        corpo += f'''
-        <form method="POST" action="/logistica/modo" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
-          <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
-          <label>Escolha o modo do pedido</label>
-          <select name="modo" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
-          <option value="">Selecione...</option>
-          <option value="entrega">🚚 Entrega</option>
-          <option value="retirada">🏬 Retirada</option>
-          </select>
-          <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Definir Modo</button>
-        </form>'''
+        if not modo_atual:
+            corpo += f'''
+            <form method="POST" action="/logistica/modo" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
+              <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
+              <label>Escolha o modo do pedido</label>
+              <select name="modo" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+              <option value="">Selecione...</option>
+              <option value="entrega">🚚 Entrega</option>
+              <option value="retirada">🏬 Retirada</option>
+              </select>
+              <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Definir Modo</button>
+            </form>'''
     # ===== RETIRADA =====
-    elif modo_atual == 'retirada':
-        corpo += f'''
-        <form method="POST" action="/logistica/status" style="margin-bottom:16px">
-          <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
-          <input type="hidden" name="status" value="pronto_retirada">
-          <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
-        </form>'''
+        elif modo_atual == 'retirada':
+            corpo += f'''
+            <form method="POST" action="/logistica/status" style="margin-bottom:16px">
+              <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
+              <input type="hidden" name="status" value="pronto_retirada">
+              <button type="submit" style="width:100%;padding:14px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">✅ Marcar como Pronto para Retirada</button>
+            </form>'''
 
     # Se já está pronto para retirada, permite registrar o horário da retirada
-    if pedido.get('status') == 'pronto_retirada':
-        corpo += f'''
-        <form method="POST" action="/logistica/retirada" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
-          <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
-          <label>Horário da retirada</label>
-          <input type="time" name="horario" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
-          <button type="submit" style="width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🎯 Registrar Retirada</button>
-        </form>'''
+            if pedido.get('status') == 'pronto_retirada':
+            corpo += f'''
+            <form method="POST" action="/logistica/retirada" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
+              <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
+              <label>Horário da retirada</label>
+              <input type="time" name="horario" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+              <button type="submit" style="width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">🎯 Registrar Retirada</button>
+            </form>'''
         # ===== ENTREGA =====
-    else:
+        else:
         corpo += f'''
         <form method="POST" action="/logistica/status" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
           <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
