@@ -45,7 +45,14 @@ def criar_tabela_pedidos():
     atualizado_em TEXT)''')
     conn.commit()
     conn.close()
-criar_tabela_pedidos()   # chame no início do app 
+criar_tabela_pedidos() 
+try:
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("ALTER TABLE pedidos ADD COLUMN horario_retirada TEXT")
+    conn.commit()
+    conn.close()
+except Exception:
+    pass    # chame no início do app 
 
 
 
