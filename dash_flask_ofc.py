@@ -1949,12 +1949,25 @@ def logistica_modo():
 def logistica_status():
     nota = request.form.get('nota', '').strip()
     status = request.form.get('status', '').strip()
+    motorista = request.form.get('motorista', '').strip()
+    veiculo = request.form.get('veiculo', '').strip()
+    horario_saida = request.form.get('horario_saida', '').strip()
+
     if nota and status:
         conn = sqlite3.connect(DB_PATH)
-        conn.execute(
-            "UPDATE pedidos SET status = ?, atualizado_em = datetime('now') WHERE numero_nota = ?",
-            (status, nota)
-        )
+        # Se for saída para entrega, salva também motorista, veículo e horário
+        if status == 'saiu_entrega':
+            conn.execute(
+                """UPDATE pedidos SET status = ?, motorista = ?, veiculo = ?,
+                   horario_saida = ?, atualizado_em = datetime('now')
+                   WHERE numero_nota = ?""",
+                (status, motorista, veiculo, horario_saida, nota)
+            )
+        else:
+            conn.execute(
+                "UPDATE pedidos SET status = ?, atualizado_em = datetime('now') WHERE numero_nota = ?",
+                (status, nota)
+            )
         conn.commit()
         conn.close()
     return redirect(f'/logistica?nota={nota}')
