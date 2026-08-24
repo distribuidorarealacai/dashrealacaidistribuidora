@@ -2136,8 +2136,8 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["motorista"] if r["motorista"] else "-"}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_saida"] if r["horario_saida"] else "-"}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_entrega"] if r["horario_entrega"] else "-"}</td>
-          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_retirada"] if r["horario_retirada"] else "-"}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_chegada"] if r["horario_chegada"] else "-"}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["horario_retirada"] if r["horario_retirada"] else "-"}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{campo_chegada}</td>
         </tr>'''
 
