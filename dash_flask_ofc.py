@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+=#!/usr/bin/env python3
 """
 dash_flask_ofc.py  (v12 - CORRIGIDO - com painel de entrada e novo token REAL MAIS)
 """
@@ -2041,7 +2041,7 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
             corpo += f'''
             <form method="POST" action="/logistica/modo" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
               <label>Número Interno da Nota</label>
-              <input type="text" name="nota" value="{pedido.get('numero_interno', '')}" placeholder="Digite o número interno" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+              <input type="text" name="nota" value="{pedido.get('numero_interno') or pedido["numero_nota"]}" placeholder="Digite o número interno" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
               <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
               <label>Escolha o modo do pedido</label>
               <select name="modo" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
@@ -2468,4 +2468,3 @@ def buscar_pedido_por_numero_interno(numero_interno):
     if row is None:
         return None
     return dict(zip(colunas, row))
-        
