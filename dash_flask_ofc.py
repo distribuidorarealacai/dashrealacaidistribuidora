@@ -2029,10 +2029,16 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         corpo = f'''
         <div style="background:#eff6ff;padding:16px;border-radius:8px;margin-bottom:16px">
           <div style="font-size:14px;color:#374151">Nota: <b>{pedido["numero_nota"]}</b></div>
-          <input type="text" name="numero_interno" value="{pedido.get('numero_interno') or pedido["numero_nota"]}" placeholder="Digite o número interno" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
           <div style="font-size:16px;color:#1e40af;font-weight:700;margin-top:4px">Cliente: {pedido.get("nome_cliente", "")}</div>
           <div style="font-size:14px;color:#374151;margin-top:8px">Número Interno: <b>{pedido.get("numero_interno") or pedido["numero_nota"]}</b></div>
         </div>'''
+         corpo += f'''
+        <form method="POST" action="/logistica/numero_interno" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
+          <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
+          <label>Número Interno da Nota</label>
+          <input type="text" name="numero_interno" value="{pedido.get('numero_interno') or pedido["numero_nota"]}" placeholder="Digite o número interno" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
+          <button type="submit" style="width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">💾 Salvar Número Interno</button>
+        </form>'''
 
     # ===== SE O MODO AINDA NÃO FOI DEFINIDO, PERGUNTA =====
         if not modo_atual:
