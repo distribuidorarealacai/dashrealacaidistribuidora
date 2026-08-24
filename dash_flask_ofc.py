@@ -2032,7 +2032,7 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
           <div style="font-size:16px;color:#1e40af;font-weight:700;margin-top:4px">Cliente: {pedido.get("nome_cliente", "")}</div>
           <div style="font-size:14px;color:#374151;margin-top:8px">Número Interno: <b>{pedido.get("numero_interno") or pedido["numero_nota"]}</b></div>
         </div>'''
-         corpo += f'''
+        corpo += f'''
         <form method="POST" action="/logistica/numero_interno" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
           <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
           <label>Número Interno da Nota</label>
