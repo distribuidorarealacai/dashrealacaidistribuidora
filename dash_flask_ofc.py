@@ -1767,7 +1767,7 @@ def consultar_pedido_vhsys(id_ped):
         print(f"[ERRO VHSYS] {e}", flush=True)
         return None
 
-def acompanhar_page_html(nota, info):
+def acompanhar_page_html(pedido_interno, info):
     resultado = ''
     if nota and info is None:
         resultado = '<div style="background:#fee2e2;color:#b91c1c;padding:14px;border-radius:8px;margin-top:16px;text-align:center">Nota não encontrada. Verifique o número e tente novamente.</div>'
