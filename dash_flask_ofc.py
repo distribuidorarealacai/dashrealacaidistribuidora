@@ -1881,8 +1881,8 @@ def logistica():
 
     # ===== BUSCA OS CADASTROS DO ADMIN (dropdowns) =====
     db = get_db()
-    motoristas = db.execute('SELECT id, nome FROM motoristas ORDER BY nome').fetchall()
-    veiculos = db.execute('SELECT id, placa, descricao FROM veiculos ORDER BY placa').fetchall()
+    motoristas = [dict(m) for m in db.execute('SELECT id, nome FROM motoristas ORDER BY nome').fetchall()]
+    veiculos = [dict(v) for v in db.execute('SELECT id, placa, descricao FROM veiculos ORDER BY placa').fetchall()]
 
     nota = request.args.get('nota', '').strip()
     pedido = None
@@ -1897,9 +1897,10 @@ def logistica():
                 pedido = {'numero_nota': nota, 'nome_cliente': '', 'vendedor': '', 'modo': '', 'status': 'gp'}
 
     # ===== TABELA DE ROTAS DO DIA (todas as notas reconhecidas) =====
-    rotas = db.execute(
-        "SELECT * FROM pedidos ORDER BY id DESC"
-    ).fetchall()
+    # Converte as linhas em dicionários para permitir r.get('...') na tabela
+    rows = db.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
+    colunas = [desc[0] for desc in db.description] if db.description else []
+    rotas = [dict(zip(colunas, row)) for row in rows] if colunas else [dict(r) for r in rows]
     db.close()
 
     return Response(logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas), mimetype='text/html')
