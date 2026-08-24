@@ -32,6 +32,7 @@ def criar_tabela_pedidos():
     conn.execute('''CREATE TABLE IF NOT EXISTS pedidos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     numero_nota TEXT UNIQUE NOT NULL,
+    numero_interno TEXT,
     nome_cliente TEXT,
     vendedor TEXT,
     modo TEXT,
@@ -41,20 +42,23 @@ def criar_tabela_pedidos():
     horario_saida TEXT,
     horario_entrega TEXT,
     horario_chegada TEXT,
+    horario_retirada TEXT,
     criado_em TEXT,
     atualizado_em TEXT)''')
     conn.commit()
     conn.close()
-criar_tabela_pedidos() 
-try:
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("ALTER TABLE pedidos ADD COLUMN horario_retirada TEXT")
-    conn.execute("ALTER TABLE pedidos ADD COLUMN numero_interno TEXT")
-    conn.commit()
-    conn.close()
-except Exception:
-    pass    # chame no início do app 
 
+criar_tabela_pedidos()
+
+# Colunas adicionadas em bancos antigos (não quebra se já existirem)
+for coluna in ('horario_retirada', 'numero_interno'):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(f"ALTER TABLE pedidos ADD COLUMN {coluna} TEXT")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 
