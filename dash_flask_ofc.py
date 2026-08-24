@@ -1683,14 +1683,8 @@ def acompanhar():
     nota = request.args.get('nota', '').strip()
     info = None
     if nota:
-        # 1) Busca pelo NÚMERO INTERNO da nota (cadastrado na /logistica)
-        info = buscar_pedido_por_numero_interno(nota)
-
-        # 2) Fallback: busca pelo número da nota do VHSYS (pedidos antigos)
-        if info is None:
-            info = buscar_pedido_local(nota)
-
-        # 3) Se ainda não achou, consulta o VHSYS
+        # Busca pelo NÚMERO DA NOTA (declarado na página /logistica)
+        info = buscar_pedido_local(nota)
         if info is None:
             v = consultar_pedido_vhsys(nota)
             if v and v.get('tipo') == 'real_mais':
@@ -1709,7 +1703,7 @@ def buscar_pedido_local(numero_nota):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute("SELECT * FROM pedidos WHERE numero_interno = ?", (str(numero_nota),))
+        cur.execute("SELECT * FROM pedidos WHERE numero_nota = ?", (str(numero_nota),))
         row = cur.fetchone()
         conn.close()
         if row:
@@ -1846,7 +1840,7 @@ def acompanhar_page_html(nota, info):
     <h1>🔍 Acompanhar Pedido</h1>
     <div class="sub">Digite o número da sua nota para ver o status</div>
     <form method="GET" action="/acompanhar">
-      <input type="text" name="numero_interno" placeholder="Digite o número do pedido" value="{nota}" required>
+      <input type="text" name="nota" placeholder="Digite o número do pedido" value="{nota}" required>
       <button type="submit">Consultar</button>
       <a href="/logistica" style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:600;display:inline-block;margin-bottom:20px">🔐 Fazer Login</a>
     </form>
@@ -2040,8 +2034,6 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         if not modo_atual:
             corpo += f'''
             <form method="POST" action="/logistica/modo" style="background:#f9fafb;padding:16px;border-radius:8px;margin-bottom:16px">
-              <label>Número Interno da Nota</label>
-              <input type="text" name="nota" value="{pedido.get('numero_interno') or pedido["numero_nota"]}" placeholder="Digite o número interno" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
               <input type="hidden" name="nota" value="{pedido["numero_nota"]}">
               <label>Escolha o modo do pedido</label>
               <select name="modo" required style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
@@ -2133,8 +2125,8 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Motorista</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Saída</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Entrega</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Chegada</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Retirada</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Chegada</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:11%">Ação</th>
           </tr>
         </thead>
@@ -2455,16 +2447,3 @@ def logistica_retirada():
         conn.commit()
         conn.close()
     return redirect(f'/logistica?nota={nota}')
-
-def buscar_pedido_por_numero_interno(numero_interno):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.execute(
-        "SELECT * FROM pedidos WHERE numero_interno = ?",
-        (numero_interno,)
-    )
-    row = cur.fetchone()
-    colunas = [desc[0] for desc in cur.description]
-    conn.close()
-    if row is None:
-        return None
-    return dict(zip(colunas, row))
