@@ -2027,7 +2027,9 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         corpo = f'''
         <div style="background:#eff6ff;padding:16px;border-radius:8px;margin-bottom:16px">
           <div style="font-size:14px;color:#374151">Nota: <b>{pedido["numero_nota"]}</b></div>
+          <input type="text" name="numero_interno" value="{pedido.get('numero_interno') or pedido["numero_nota"]}" placeholder="Digite o número interno" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;margin-bottom:12px">
           <div style="font-size:16px;color:#1e40af;font-weight:700;margin-top:4px">Cliente: {pedido.get("nome_cliente", "")}</div>
+          <div style="font-size:14px;color:#374151;margin-top:8px">Número Interno: <b>{pedido.get("numero_interno") or pedido["numero_nota"]}</b></div>
         </div>'''
 
     # ===== SE O MODO AINDA NÃO FOI DEFINIDO, PERGUNTA =====
@@ -2102,6 +2104,7 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         linhas += f'''
         <tr>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb;word-break:break-word">{r["numero_nota"]}</td>
+          <td style="padding:10px;border-bottom:1px solid #e5e7eb;word-break:break-word">{r["numero_interno"] if r.get("numero_interno") else "-"}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb;word-break:break-word;overflow-wrap:break-word">{r["nome_cliente"]}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{status_badge}</td>
           <td style="padding:10px;border-bottom:1px solid #e5e7eb">{r["motorista"] if r["motorista"] else "-"}</td>
@@ -2120,13 +2123,14 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
         <thead>
           <tr style="background:#f3f4f6">
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:10%">Nota</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Nº Interno</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:28%">Cliente</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Status</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Motorista</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Saída</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Entrega</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Retirada</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Chegada</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Retirada</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:11%">Ação</th>
           </tr>
         </thead>
@@ -2443,6 +2447,22 @@ def logistica_retirada():
             """UPDATE pedidos SET horario_retirada = ?, status = 'retirado',
                atualizado_em = datetime('now') WHERE numero_nota = ?""",
             (horario, nota)
+        )
+        conn.commit()
+        conn.close()
+    return redirect(f'/logistica?nota={nota}')
+
+@app.route('/logistica/numero_interno', methods=['POST'])
+def logistica_numero_interno():
+    nota = request.form.get('nota', '').strip()
+    numero_interno = request.form.get('numero_interno', '').strip()
+    if nota:
+        if not numero_interno:
+            numero_interno = nota  # iguala ao número da nota
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "UPDATE pedidos SET numero_interno = ?, atualizado_em = datetime('now') WHERE numero_nota = ?",
+            (numero_interno, nota)
         )
         conn.commit()
         conn.close()
