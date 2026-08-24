@@ -49,10 +49,12 @@ criar_tabela_pedidos()
 try:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("ALTER TABLE pedidos ADD COLUMN horario_retirada TEXT")
+    conn.execute("ALTER TABLE pedidos ADD COLUMN numero_interno TEXT")
     conn.commit()
     conn.close()
 except Exception:
     pass    # chame no início do app 
+
 
 
 
