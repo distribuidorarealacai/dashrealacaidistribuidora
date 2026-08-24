@@ -2125,8 +2125,8 @@ def logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas):
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:12%">Motorista</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Saída</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Entrega</th>
-            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Retirada</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Chegada</th>
+            <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:9%">Retirada</th>
             <th style="padding:10px;text-align:left;border-bottom:2px solid #e5e7eb;width:11%">Ação</th>
           </tr>
         </thead>
