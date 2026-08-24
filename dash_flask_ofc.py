@@ -1686,9 +1686,9 @@ def cmv_endpoint():
 
 @app.route('/acompanhar')
 def acompanhar():
-    nota = request.args.get('pedido_interno', '').strip()
+    pedido_interno = request.args.get('pedido_interno', '').strip()
     info = None
-    if nota:
+    if pedido_interno:
         # Busca pelo NÚMERO DA NOTA (declarado na página /logistica)
         info = buscar_pedido_local(pedido_interno)
         if info is None:
@@ -1701,7 +1701,7 @@ def acompanhar():
                 }
             elif v and v.get('tipo') == 'gp':
                 info = {'status': 'gp', 'nome_cliente': '', 'vendedor': ''}
-    return Response(acompanhar_page_html(nota, info), mimetype='text/html')
+    return Response(acompanhar_page_html(pedido_interno, info), mimetype='text/html')
 
 def buscar_pedido_local(numero_nota):
     """Busca o status do pedido salvo no banco local."""
@@ -1718,6 +1718,19 @@ def buscar_pedido_local(numero_nota):
     except Exception as e:
         print(f"[ERRO buscar_pedido_local] {e}", flush=True)
         return None
+
+def buscar_pedido_por_numero_interno(numero_interno):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.execute(
+        "SELECT * FROM pedidos WHERE numero_interno = ?",
+        (numero_interno,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return dict(row)
 
 
 
@@ -1846,7 +1859,7 @@ def acompanhar_page_html(nota, info):
     <h1>🔍 Acompanhar Pedido</h1>
     <div class="sub">Digite o número da sua nota para ver o status</div>
     <form method="GET" action="/acompanhar">
-      <input type="text" name="nota" placeholder="Digite o número do pedido" value="{nota}" required>
+      <input type="text" name="pedido_interno" placeholder="Digite o número do pedido" value="{pedido_interno}" required>
       <button type="submit">Consultar</button>
       <a href="/logistica" style="color:#2563eb;text-decoration:none;font-size:14px;font-weight:600;display:inline-block;margin-bottom:20px">🔐 Fazer Login</a>
     </form>
