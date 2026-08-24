@@ -1687,7 +1687,7 @@ def cmv_endpoint():
 @app.route('/acompanhar')
 def acompanhar():
     pedido_interno = request.args.get('pedido_interno', '').strip()
-    info = None
+    info = buscar_pedido_por_numero_interno(pedido_interno)
     if pedido_interno:
         # Busca pelo NÚMERO DA NOTA (declarado na página /logistica)
         info = buscar_pedido_local(pedido_interno)
@@ -2493,4 +2493,3 @@ def logistica_numero_interno():
         conn.commit()
         conn.close()
     return redirect(f'/logistica?nota={nota}')
-        
