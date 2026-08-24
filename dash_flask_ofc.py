@@ -1898,9 +1898,9 @@ def logistica():
 
     # ===== TABELA DE ROTAS DO DIA (todas as notas reconhecidas) =====
     # Converte as linhas em dicionários para permitir r.get('...') na tabela
-    rows = db.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
-    colunas = [desc[0] for desc in db.description] if db.description else []
-    rotas = [dict(zip(colunas, row)) for row in rows] if colunas else [dict(r) for r in rows]
+        # ===== TABELA DE ROTAS DO DIA (todas as notas reconhecidas) =====
+    cur = db.execute("SELECT * FROM pedidos ORDER BY id DESC")
+    rotas = [dict(r) for r in cur.fetchall()]
     db.close()
 
     return Response(logistica_painel_html(u, nota, pedido, motoristas, veiculos, rotas), mimetype='text/html')
