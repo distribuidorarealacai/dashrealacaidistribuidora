@@ -1769,7 +1769,7 @@ def consultar_pedido_vhsys(id_ped):
 
 def acompanhar_page_html(pedido_interno, info):
     resultado = ''
-    if nota and info is None:
+    if pedido_interno and info is None:
         resultado = '<div style="background:#fee2e2;color:#b91c1c;padding:14px;border-radius:8px;margin-top:16px;text-align:center">Nota não encontrada. Verifique o número e tente novamente.</div>'
     elif info:
         if info['status'] == 'gp':
@@ -2493,3 +2493,4 @@ def logistica_numero_interno():
         conn.commit()
         conn.close()
     return redirect(f'/logistica?nota={nota}')
+        
