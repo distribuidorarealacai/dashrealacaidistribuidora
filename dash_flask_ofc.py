@@ -1,4 +1,4 @@
-=#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 dash_flask_ofc.py  (v12 - CORRIGIDO - com painel de entrada e novo token REAL MAIS)
 """
