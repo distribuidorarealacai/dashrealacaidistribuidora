@@ -1686,13 +1686,13 @@ def cmv_endpoint():
 
 @app.route('/acompanhar')
 def acompanhar():
-    nota = request.args.get('nota', '').strip()
+    nota = request.args.get('pedido_interno', '').strip()
     info = None
     if nota:
         # Busca pelo NÚMERO DA NOTA (declarado na página /logistica)
-        info = buscar_pedido_local(nota)
+        info = buscar_pedido_local(pedido_interno)
         if info is None:
-            v = consultar_pedido_vhsys(nota)
+            v = consultar_pedido_vhsys(pedido_interno)
             if v and v.get('tipo') == 'real_mais':
                 info = {
                     'status': 'estoque',
